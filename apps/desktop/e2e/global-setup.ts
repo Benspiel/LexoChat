@@ -95,7 +95,7 @@ export default async function globalSetup() {
   const bin = join(work, "lexichat");
   const dataDir = join(work, "pb_data");
   execFileSync("go", ["build", "-o", bin, "."], { cwd: join(root, "apps/server"), env: { ...process.env, CGO_ENABLED: "0", GOTOOLCHAIN: "auto" }, stdio: "inherit" });
-  const env = { ...process.env, LEXICHAT_SERVER_SECRET: randomBytes(32).toString("base64"), LEXICHAT_ALLOWED_ORIGINS: WEB };
+  const env = { ...process.env, LEXICHAT_SERVER_SECRET: randomBytes(32).toString("base64"), LEXICHAT_ALLOWED_ORIGINS: `${WEB},http://127.0.0.1:4173`, LEXICHAT_ADMIN_ORIGIN: "http://127.0.0.1:4173" };
   const out = execFileSync(bin, ["bootstrap-admin", "--dir", dataDir, "--username", "admin", "--name", "Praxis Admin"], { env }).toString();
   const otp = /Einmalpasswort:\s+(\S+)/.exec(out)![1]!;
 

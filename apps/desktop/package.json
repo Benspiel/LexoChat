@@ -11,7 +11,8 @@
     "test": "vitest run --dir src",
     "e2e": "vite build && playwright test",
     "tauri": "tauri",
-    "build:windows": "node scripts/build-windows.mjs"
+    "build:windows": "node scripts/build-windows.mjs",
+    "screenshots": "vite build && playwright test -c playwright.screenshots.config.ts"
   },
   "dependencies": {
     "@lexichat/crypto": "workspace:*",
