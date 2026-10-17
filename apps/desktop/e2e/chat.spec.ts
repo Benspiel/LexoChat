@@ -34,12 +34,15 @@ async function firstLogin(browser: Browser, user: "anna" | "ben", problems: stri
   watch(page, problems);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Willkommen bei LexiChat." })).toBeVisible();
+  await accessible(page, "first-start notice");
   await page.getByRole("button", { name: "Verstanden" }).click();
+  await accessible(page, "login");
   await page.getByLabel("Benutzername").fill(user);
   await page.getByLabel("Passwort", { exact: true }).fill(state().users[user]!);
   await page.getByRole("button", { name: "Anmelden" }).click();
 
   await expect(page.getByRole("heading", { name: "Neues Passwort festlegen." })).toBeVisible();
+  await accessible(page, "set password");
   await page.getByLabel("Neues Passwort", { exact: true }).fill(PW[user]);
   await page.getByLabel("Neues Passwort wiederholen").fill(PW[user]);
   await page.getByRole("button", { name: "Passwort festlegen" }).click();
@@ -48,6 +51,7 @@ async function firstLogin(browser: Browser, user: "anna" | "ben", problems: stri
   const key = (await page.getByTestId("recovery-key").innerText()).replace(/\s+/g, "-");
   expect(key).toMatch(/^([A-Z2-9]{4}-){13}[A-Z2-9]{4}$/);
   recovery[user] = key;
+  await accessible(page, "recovery key");
   await page.getByLabel("Zur Kontrolle: die letzte Vierergruppe eingeben").fill(key.slice(-4));
   await page.getByRole("button", { name: "Ich habe den Schlüssel sicher notiert" }).click();
   await expect(page.getByRole("button", { name: "Neuer Chat" }).first()).toBeVisible({ timeout: 30_000 });
@@ -117,6 +121,23 @@ test("safety numbers match on both sides", async () => {
   await ben.keyboard.press("Escape");
 });
 
+test("read receipts are only sent after opting in", async () => {
+  await anna.getByRole("button", { name: /Menü/ }).click();
+  await anna.getByRole("menuitem", { name: "Benachrichtigungen und Privatsphäre" }).click();
+  const settings = anna.getByRole("dialog", { name: "Einstellungen." });
+  const toggle = settings.getByRole("switch", { name: /Lesebestätigungen senden/ });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await accessible(anna, "settings privacy");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+  await anna.keyboard.press("Escape");
+
+  await ben.getByLabel("Nachricht schreiben").fill("Bitte kurz bestätigen.");
+  await ben.getByLabel("Nachricht schreiben").press("Enter");
+  await expect(anna.getByText("Bitte kurz bestätigen.")).toBeVisible();
+  await expect(ben.locator(".bubble.mine", { hasText: "Bitte kurz bestätigen." })).toContainText("gelesen");
+});
+
 test("broadcast to all colleagues", async () => {
   const box = anna.getByLabel("Nachricht schreiben");
   await box.fill("Teamsitzung heute um 13 Uhr.");
@@ -137,6 +158,15 @@ test("broadcast to all colleagues", async () => {
 });
 
 test("edit and delete for everyone", async () => {
+  const own = anna.locator(".bubble.mine", { hasText: "Zeile 2" });
+  await own.hover();
+  await own.getByRole("button", { name: "Bearbeiten" }).click();
+  const box = anna.getByLabel("Nachricht schreiben");
+  await expect(box).toHaveValue(/Zeile 1/);
+  await box.fill("Korrigiert: Raum 4.");
+  await anna.getByRole("button", { name: "Speichern" }).click();
+  await expect(ben.locator(".bubble", { hasText: "Korrigiert: Raum 4." })).toContainText("bearbeitet");
+
   const bubble = anna.locator(".bubble.mine", { hasText: "Hallo Ben, Patient Raum 3 ist bereit." });
   await bubble.hover();
   await bubble.getByRole("button", { name: "Löschen" }).click();

@@ -59,9 +59,34 @@ jobs:
       - name: Playwright browser
         working-directory: apps/admin-web
         run: pnpm exec playwright install --with-deps chromium
-      - name: E2E against a real server (incl. axe WCAG 2.1 AA and production CSP)
+      - name: E2E admin web app against a real server (incl. axe WCAG 2.1 AA and production CSP)
         working-directory: apps/admin-web
         run: pnpm e2e
+      - name: E2E Windows app (web part) – two users, E2EE chat, broadcast, lock, recovery
+        working-directory: apps/desktop
+        run: pnpm e2e
+
+  desktop-native:
+    name: Windows-App (Rust) – Clippy, Audit
+    runs-on: windows-2025
+    defaults:
+      run:
+        working-directory: apps/desktop/src-tauri
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Frontend placeholder (tauri::generate_context needs ../dist)
+        run: mkdir ../dist -Force
+        shell: pwsh
+      - name: rustfmt
+        run: cargo fmt --check
+      - name: clippy
+        run: cargo clippy --locked -- -D warnings
+      - name: cargo audit
+        run: |
+          cargo install cargo-audit --locked --version 0.22.0
+          cargo audit
 
   caddy:
     name: Caddyfile validieren

@@ -64,6 +64,8 @@ services:
       - caddy_config:/config
       # built admin web app (apps/admin-web/dist), see docs/betriebshandbuch.md
       - ./admin-web-dist:/srv/admin-web:ro
+      # signed Windows app updates (latest.json + installer + .sig), see docs/betriebshandbuch.md
+      - ./updates:/srv/updates:ro
     networks:
       - backend
     read_only: true

@@ -13,6 +13,7 @@ import {
 import { RealtimeConnection, filterString, type RealtimeStatus, type UserRecord } from "@lexichat/shared";
 import { client } from "./session";
 import { localCache, notify } from "./platform";
+import { notificationText } from "./notification";
 
 // ------------------------------------------------------------------ types
 
@@ -79,6 +80,8 @@ interface Outgoing {
   body: string;
   replyTo?: string;
   status: "sending" | "failed";
+  /** nonce of the encrypted message: matches the realtime echo of the own message */
+  nonce?: string;
 }
 
 interface LocalState {
@@ -171,7 +174,7 @@ async function saveLocal() {
 export async function start(me: UserRecord, identity: Identity): Promise<void> {
   state.me = me;
   state.identity = identity;
-  state.prefs = { ...DEFAULT_PREFS, ...((me as unknown as { prefs?: Partial<Prefs> }).prefs ?? {}) };
+  state.prefs = DEFAULT_PREFS;
   state.local = await localCache.read<LocalState>(`local-${me.id}`, state.local);
   state.local.lastRead ??= {};
   emit();
@@ -237,9 +240,12 @@ export function setWindowFocused(f: boolean) {
 // ------------------------------------------------------------------ loading
 
 async function refreshMe() {
-  const me = await client.request<UserRecord & { prefs?: Partial<Prefs> }>("GET", `/api/collections/users/records/${state.me!.id}`);
+  const [me, prefs] = await Promise.all([
+    client.request<UserRecord>("GET", `/api/collections/users/records/${state.me!.id}`),
+    client.request<Partial<Prefs>>("GET", "/api/lexichat/me/prefs"),
+  ]);
   state.me = me;
-  state.prefs = { ...DEFAULT_PREFS, ...(me.prefs ?? {}) };
+  state.prefs = { ...DEFAULT_PREFS, ...prefs };
   emit();
 }
 
@@ -509,6 +515,7 @@ async function trySend(out: Outgoing) {
   if (!chat) return;
   try {
     const enc = await encryptFor(chat, out.body, directContext(chat.id));
+    out.nonce = enc.nonce;
     const rec = await client.request<MessageRecord>("POST", "/api/collections/messages/records", {
       chat: chat.id,
       sender: state.me!.id,
@@ -557,7 +564,13 @@ export async function editMessage(m: MessageRecord, body: string): Promise<void>
   const chat = state.chats.find((c) => c.id === m.chat);
   if (!chat) return;
   const enc = await encryptFor(chat, body.trim(), directContext(chat.id));
-  const rec = await client.update<MessageRecord>("messages", m.id, { ...enc });
+  // the format version is fixed per message and must not be part of an update
+  const rec = await client.update<MessageRecord>("messages", m.id, {
+    ciphertext: enc.ciphertext,
+    nonce: enc.nonce,
+    envelopes: enc.envelopes,
+    signature: enc.signature,
+  });
   state.decrypted.set(rec.id, { ok: true, payload: { t: "text", body: body.trim() } });
   replaceMessage(rec);
 }
@@ -587,9 +600,7 @@ export function sendTyping(chatId: string) {
 }
 
 export async function updatePrefs(p: Partial<Prefs>): Promise<void> {
-  const next = { ...state.prefs, ...p };
-  await client.update("users", state.me!.id, { prefs: next });
-  state.prefs = next;
+  state.prefs = { ...DEFAULT_PREFS, ...(await client.request<Partial<Prefs>>("POST", "/api/lexichat/me/prefs", p)) };
   emit();
   void loadPresence();
 }
@@ -691,6 +702,8 @@ async function onRealtime(topic: string, data: unknown) {
         return;
       }
       if (!state.chats.some((c) => c.id === m.chat)) await loadChats();
+      // realtime echo of an own message can arrive before the http response
+      state.outbox = state.outbox.filter((o) => !o.nonce || o.nonce !== m.nonce);
       state.decrypted.delete(m.id);
       replaceMessage(m);
       await decryptAll([m]);
@@ -739,9 +752,8 @@ async function notifyIncoming(m: MessageRecord) {
   const mode = state.prefs.notificationContent;
   const sender = state.contacts.get(m.sender)?.name ?? "Unbekannt";
   const d = state.decrypted.get(m.id);
-  if (mode === "none") await notify("LexiChat", "Neue Nachricht in LexiChat");
-  else if (mode === "sender") await notify("LexiChat", `Neue Nachricht von ${sender}`);
-  else await notify(sender, d?.ok ? d.payload.body.slice(0, 120) : "Neue Nachricht");
+  const n = notificationText(mode, sender, d?.ok ? d.payload.body : null);
+  await notify(n.title, n.body);
 }
 
 // ------------------------------------------------------------------ avatars (protected files)

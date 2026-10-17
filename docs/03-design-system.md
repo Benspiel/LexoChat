@@ -1,7 +1,7 @@
 # LexiChat – Design-System
 
 > Paket: `packages/ui` (CSS-Variablen in `src/styles.css`, React-Komponenten in `src/components.tsx`, Tokens + Kontrasttests in `src/tokens.ts`).
-> Grundlage: die im Auftrag genannten Tokens (Mobbin-Stil). **`/design/DESIGN.md` lag bis Phase 2 nicht im Repository** – sobald sie vorliegt, werden Abweichungen nachgezogen.
+> Grundlage: [`/design/DESIGN.md`](../design/DESIGN.md) (Mobbin-Analyse), seit Phase 3 im Repository; das Design-System wurde daran angeglichen. Abweichungen sind unten begründet.
 
 ## Tokens
 
@@ -19,11 +19,11 @@
 
 Abstände 4/8/12/16/24/32/48 px · Radien: Pills `9999px`, Karten/Dialoge 24 px, Inputs/Kacheln 16 px · keine Schatten, keine Verläufe.
 
-Typografie: **Inter Variable, lokal eingebunden** (`@fontsource-variable/inter`, keine Google Fonts). Überschriften 650 (Zeilenhöhe 1,1), Fließtext 450, Lead 300, Sentence-Case, Überschriften enden mit Punkt.
+Typografie: **Inter Variable, lokal eingebunden** (`@fontsource-variable/inter`, keine Google Fonts). Gewichte laut DESIGN.md als Tokens: `--w-heading` 652 (Zeilenhöhe 1,1), `--w-body` 456, `--w-lead` 300, `--w-strong` 600 (Titel, Links, Labels). Sentence-Case, Überschriften enden mit Punkt. Die Mobbin-Hausschrift ist proprietär; Inter ist die freie, lokal ausgelieferte Entsprechung.
 
 ## Komponenten
 
-`Button` (primary · outline · soft · ghost; sm/md; Ladezustand), `TextField`, `SelectField`, `Toggle` (`role="switch"`), `Card`, `Badge` (neutral · outline · ink · accent), `Notice` (info · success · warning · error), `Avatar` (Initialen-Fallback), `Dialog` (natives `<dialog>`, Fokusfalle durch den Browser, Esc schließt außer bei `persistent`), `EmptyState`, `Spinner`, `Icon` (Inline-SVG, keine Icon-Fonts).
+`Button` (primary · outline · soft · ghost; sm/md; Ladezustand), `TextField`, `SelectField`, `Toggle` (`role="switch"`), `Card`, `Badge` (neutral · outline · ink · accent), `Notice` (info · success · warning · error), `Avatar` (Initialen-Fallback), `Dialog` (natives `<dialog>`, Fokusfalle durch den Browser, Esc schließt außer bei `persistent`), `EmptyState`, `Spinner`, `Icon` (Inline-SVG, keine Icon-Fonts), `Segmented` (Segmented Control: Stadion-Spur in `canvas-soft`, aktive Option als weiße Pill, `aria-pressed`), `Toast` (Kartenform, `role="status"`), `Logomark` (Squircle-App-Icon). CSS-Muster: `.lx-navpill` (schwebende Navigations-Pill), `.lx-footer` (Ink-Band mit abgerundeten oberen Ecken, Polaritätsumkehr).
 
 ## Abweichungen und Auslegungen (bewusst)
 
@@ -32,13 +32,15 @@ Typografie: **Inter Variable, lokal eingebunden** (`@fontsource-variable/inter`,
 3. **Akzentblau** nur für Ungelesen-Badge und Broadcast-Label (im Original nur für kommerzielle Signale).
 4. **Eingabefelder ohne Rand** (laut Design): Die Füllfarbe hebt sich mit 1,13:1 nur schwach von Weiß ab. WCAG 1.4.11 (Nicht-Text-Kontrast) wird hier unterschiedlich ausgelegt; wir stellen sicher, dass jedes Feld ein **sichtbares Label** hat und der Fokusring 2 px Ink (18:1) beträgt. axe meldet keinen Verstoß, eine manuelle Prüfung mit Betroffenen wird trotzdem empfohlen.
 5. **Native `<select>`**: Systemdarstellung des Pfeils, dafür volle Tastatur- und Screenreader-Unterstützung.
+6. **Keine Schatten**: DESIGN.md sieht für Toast/Modal einen mittleren Schatten vor; wir verwenden stattdessen eine Hairline (`--hairline`), weil sie auch im Hochkontrastmodus von Windows sichtbar bleibt und das Gesamtbild flach hält.
+7. **Fotografie/Marketing-Elemente** (Hero-Collagen, Preiskarten) aus DESIGN.md entfallen – LexiChat ist ein Arbeitswerkzeug.
 
 ## CSP-Verträglichkeit
 
 Keine Inline-Skripte, kein `<style>`-Element, keine `style`-Attribute im HTML. React setzt dynamische Styles über das CSSOM (erlaubt unter `style-src 'self'`). Schriften und Assets werden nie als `data:`-URL eingebettet (`assetsInlineLimit: 0`). Die E2E-Tests laufen mit der Produktions-CSP und schlagen bei jeder CSP-Verletzung fehl.
 
-## Barrierefreiheit (Admin-Web-App, Phase 2)
+## Barrierefreiheit
 
-- axe-core (WCAG 2.1 A/AA) in den E2E-Tests auf: Login, Passwortwechsel, 2FA-Einrichtung, Benutzerliste, Dialog „Neues Konto“, Audit-Log, Einstellungen, Mein Konto – **0 Verstöße**.
+- axe-core (WCAG 2.1 A/AA) in den E2E-Tests – Admin-Web-App: Login, Passwortwechsel, 2FA-Einrichtung, Benutzerliste, Dialog „Neues Konto“, Audit-Log, Einstellungen, Mein Konto; Windows-App (im Browser-Modus): Hinweis beim ersten Start, Anmeldung, Passwort festlegen, Wiederherstellungsschlüssel, Hauptansicht, Chat, Einstellungen – **0 Verstöße**.
 - Sichtbarer Fokus überall, „Zum Inhalt springen“, Landmarks (`header`, `nav`, `main`, `footer`), Tabellen mit `caption`/`scope`, Fehler- und Statusmeldungen als `role="alert"`/`status`, Passwortregeln als `aria-live`-Liste.
-- Automatische Tests ersetzen keine manuelle Prüfung mit Screenreader (NVDA/JAWS) – offen für Phase 6.
+- Automatische Tests ersetzen keine manuelle Prüfung mit Screenreader (NVDA/JAWS) – **nicht durchgeführt**, vor dem Rollout empfohlen.

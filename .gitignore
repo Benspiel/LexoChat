@@ -27,3 +27,4 @@ playwright-report/
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
 apps/desktop/test-results/
+deploy/updates/

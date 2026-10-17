@@ -34,7 +34,8 @@ export interface UserRecord {
   role?: "admin" | "user";
   active?: boolean;
   must_change_password?: boolean;
-  totp_enabled?: boolean;
+  /** derived 2FA state (only for the person itself and admins) */
+  two_factor?: boolean;
   locked?: boolean;
   has_keys?: boolean;
   anonymized?: boolean;

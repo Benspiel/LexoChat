@@ -161,23 +161,31 @@ func TestPrefs(t *testing.T) {
 	a, b := env.login(alice), env.login(bob)
 
 	for _, bad := range []map[string]any{
-		{"prefs": map[string]any{"typing": "yes"}},
-		{"prefs": map[string]any{"notificationContent": "everything"}},
-		{"prefs": map[string]any{"unknown": true}},
+		{"typing": "yes"},
+		{"notificationContent": "everything"},
+		{"unknown": true},
 	} {
-		if r := a.do("PATCH", "/api/collections/users/records/"+alice.Id, bad); r.Status == 200 {
+		if r := a.do("POST", "/api/lexichat/me/prefs", bad); r.Status == 200 {
 			t.Errorf("invalid prefs accepted: %v", bad)
 		}
 	}
-	if r := a.do("PATCH", "/api/collections/users/records/"+alice.Id, map[string]any{"prefs": map[string]any{"typing": true, "presence": true, "readReceipts": true, "notificationContent": "sender"}}); r.Status != 200 {
+	if r := a.do("POST", "/api/lexichat/me/prefs", map[string]any{"typing": true, "presence": true, "readReceipts": true, "notificationContent": "sender"}); r.Status != 200 {
 		t.Fatalf("valid prefs: %d %s", r.Status, r.Raw)
 	}
 	// others cannot see or set them
 	if r := b.do("GET", "/api/collections/users/records/"+alice.Id, nil); strings.Contains(r.Raw, "prefs") {
 		t.Fatal("prefs of others must be hidden")
 	}
-	if r := b.do("PATCH", "/api/collections/users/records/"+alice.Id, map[string]any{"prefs": map[string]any{"typing": false}}); r.Status == 200 {
-		t.Fatal("foreign prefs must not be settable")
+	if r := a.do("GET", "/api/lexichat/me/prefs", nil); r.Body["typing"] != true || r.Body["notificationContent"] != "sender" {
+		t.Fatalf("own prefs: %s", r.Raw)
+	}
+	// hidden on schema level: no filter oracle for other users
+	if r := b.do("GET", "/api/collections/users/records?filter="+urlq(`prefs ~ "typing"`), nil); r.Status == 200 && len(r.items()) > 0 {
+		t.Fatal("prefs must not be filterable")
+	}
+	b.do("PATCH", "/api/collections/users/records/"+bob.Id, map[string]any{"prefs": map[string]any{"typing": true}})
+	if userPrefs(env.reload(bob)).Typing {
+		t.Fatal("prefs only via the dedicated endpoint")
 	}
 }
 
@@ -216,12 +224,12 @@ func TestTypingAndPresenceAreReciprocal(t *testing.T) {
 		t.Fatal("typing must be off by default")
 	}
 	// only alice enabled -> still nothing (reciprocity)
-	a.do("PATCH", "/api/collections/users/records/"+alice.Id, map[string]any{"prefs": map[string]any{"typing": true, "presence": true}})
+	a.do("POST", "/api/lexichat/me/prefs", map[string]any{"typing": true, "presence": true})
 	a.do("POST", "/api/lexichat/typing", map[string]any{"chat": chatId})
 	if len(drained(bobRT)) != 0 {
 		t.Fatal("typing must only reach people who enabled it as well")
 	}
-	b.do("PATCH", "/api/collections/users/records/"+bob.Id, map[string]any{"prefs": map[string]any{"typing": true}})
+	b.do("POST", "/api/lexichat/me/prefs", map[string]any{"typing": true})
 	time.Sleep(2100 * time.Millisecond) // throttle window
 	a.do("POST", "/api/lexichat/typing", map[string]any{"chat": chatId})
 	msgs := drained(bobRT)
@@ -242,7 +250,7 @@ func TestTypingAndPresenceAreReciprocal(t *testing.T) {
 	if r := b.do("GET", "/api/lexichat/presence", nil); r.Body["enabled"] != false || strings.Contains(r.Raw, alice.Id) {
 		t.Fatalf("presence is reciprocal: %s", r.Raw)
 	}
-	b.do("PATCH", "/api/collections/users/records/"+bob.Id, map[string]any{"prefs": map[string]any{"typing": true, "presence": true}})
+	b.do("POST", "/api/lexichat/me/prefs", map[string]any{"typing": true, "presence": true})
 	if r := b.do("GET", "/api/lexichat/presence", nil); !strings.Contains(r.Raw, alice.Id) {
 		t.Fatalf("both share -> visible: %s", r.Raw)
 	}
@@ -250,7 +258,7 @@ func TestTypingAndPresenceAreReciprocal(t *testing.T) {
 	// outsiders cannot send typing events into foreign chats
 	carol := env.createUser("carol", RoleUser)
 	c := env.login(carol)
-	c.do("PATCH", "/api/collections/users/records/"+carol.Id, map[string]any{"prefs": map[string]any{"typing": true}})
+	c.do("POST", "/api/lexichat/me/prefs", map[string]any{"typing": true})
 	if r := c.do("POST", "/api/lexichat/typing", map[string]any{"chat": chatId}); r.Status != 404 {
 		t.Fatalf("foreign chat typing: %d", r.Status)
 	}
@@ -383,6 +391,37 @@ func TestDirectory(t *testing.T) {
 	for _, secret := range []string{"kdf", "wrapped", "role", "totp", dora.GetString("kdf_salt")} {
 		if strings.Contains(res.Raw, secret) {
 			t.Fatalf("directory leaks %s", secret)
+		}
+	}
+}
+
+func TestNoFilterOracleOnSecurityFields(t *testing.T) {
+	env := newTestEnv(t)
+	env.createUser("admin", RoleAdmin) // has 2FA
+	alice := env.createUser("alice", RoleUser)
+	a := env.login(alice)
+	for _, filter := range []string{`totp_enabled = true`, `totp_enabled = false`, `deactivated_at != ""`, `kdf_salt != ""`, `failed_logins > 0`} {
+		r := a.do("GET", "/api/collections/users/records?filter="+urlq(filter), nil)
+		if r.Status == 200 && len(r.items()) > 0 {
+			t.Errorf("filter %q must not work for users", filter)
+		}
+	}
+}
+
+func TestUnusedAuthEndpointsAreBlocked(t *testing.T) {
+	env := newTestEnv(t)
+	env.createUser("alice", RoleUser)
+	for _, path := range []string{
+		"/api/collections/users/request-password-reset",
+		"/api/collections/users/request-otp",
+		"/api/collections/users/auth-with-otp",
+		"/api/collections/users/auth-with-oauth2",
+		"/api/collections/users/request-verification",
+		"/api/collections/users/request-email-change",
+		"/api/collections/users/impersonate/abc",
+	} {
+		if r := env.do("POST", path, map[string]any{"email": "x@example.com"}, reqOpts{}); r.Status != 404 {
+			t.Errorf("%s must be blocked, got %d", path, r.Status)
 		}
 	}
 }

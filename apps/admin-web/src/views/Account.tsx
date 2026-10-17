@@ -61,9 +61,9 @@ export function AccountView({ me, onLogout }: { me: UserRecord; onLogout: () => 
         <div className="lx-stack">
           <div className="lx-spread">
             <h2>Zwei-Faktor-Anmeldung.</h2>
-            {profile.totp_enabled ? <Badge variant="ink">Aktiv</Badge> : <Badge variant="outline">Nicht eingerichtet</Badge>}
+            {profile.two_factor ? <Badge variant="ink">Aktiv</Badge> : <Badge variant="outline">Nicht eingerichtet</Badge>}
           </div>
-          {profile.totp_enabled ? (
+          {profile.two_factor ? (
             <p className="lx-muted">Bei Verlust des Geräts kann eine andere Administratorin bzw. ein anderer Administrator die 2FA zurücksetzen.</p>
           ) : mode === "totp" ? (
             <TotpSetupForm

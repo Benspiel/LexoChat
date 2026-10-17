@@ -20,6 +20,8 @@ func (s *Server) registerRoutes(se *core.ServeEvent) {
 	me.POST("/totp/enable", s.handleTotpEnable)
 	me.POST("/totp/disable", s.handleTotpDisable)
 	me.GET("/export", s.handleExportMe)
+	me.GET("/prefs", s.handleGetPrefs)
+	me.POST("/prefs", s.handleSetPrefs)
 
 	chat := g.Group("")
 	chat.Bind(apis.RequireAuth(ColUsers))

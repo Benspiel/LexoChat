@@ -186,7 +186,7 @@ function SecuritySection() {
   const [code, setCode] = useState("");
   const [pw, setPw] = useState("");
   const [msg, setMsg] = useState<{ kind: "success" | "error" | "info"; text: string } | null>(null);
-  const [totpEnabled, setTotpEnabled] = useState<boolean>(!!me?.totp_enabled);
+  const [totpEnabled, setTotpEnabled] = useState<boolean>(!!me?.two_factor);
 
   useEffect(() => {
     if (identity) void fingerprint(identity.encPublic, identity.signPublic).then(setFp);

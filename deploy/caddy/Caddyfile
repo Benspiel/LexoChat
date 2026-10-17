@@ -37,6 +37,8 @@
 (lexichat_api) {
 	@superuser path /_ /_/* /api/collections/_superusers/* /api/settings /api/settings/* /api/backups /api/backups/* /api/logs /api/logs/* /api/crons /api/crons/* /api/batch /api/collections /api/collections/import
 	@collection_meta path_regexp collmeta ^/api/collections/[^/]+/?$
+	# auth flows LexiChat does not use (also blocked in the server)
+	@unused_auth path_regexp unusedauth ^/api/collections/[^/]+/(request-|confirm-|auth-with-otp|auth-with-oauth2|impersonate)
 
 	handle /_* {
 		respond 404
@@ -48,6 +50,7 @@
 			# superuser dashboard and superuser-only endpoints are never exposed
 			respond @superuser 404
 			respond @collection_meta 404
+			respond @unused_auth 404
 
 			rate_limit {
 				zone login {
@@ -86,6 +89,13 @@
 	}
 
 	import lexichat_api
+
+	# signed update packages of the Windows app (Tauri updater verifies the signature)
+	handle /updates/* {
+		root * /srv
+		header Cache-Control "no-cache"
+		file_server
+	}
 
 	handle {
 		respond 404

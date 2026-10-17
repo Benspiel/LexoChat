@@ -15,7 +15,7 @@ var (
 	errLastAdmin = errors.New("Es muss mindestens eine aktive Administratorin bzw. ein aktiver Administrator verbleiben.")
 
 	// fields a user may change on the own record via the record api
-	selfEditableFields = []string{"name", "avatar", "prefs"}
+	selfEditableFields = []string{"name", "avatar"}
 	// fields an admin may change on any record via the record api
 	adminEditableFields = []string{"name", "avatar", "username", "role", "active"}
 
@@ -149,13 +149,6 @@ func (s *Server) registerUserHooks(app core.App) {
 		if orig.GetBool("anonymized") {
 			return e.BadRequestError("Anonymisierte Konten können nicht mehr bearbeitet werden.", nil)
 		}
-		if info, _ := e.RequestInfo(); info != nil {
-			if raw, ok := info.Body["prefs"]; ok {
-				if !isSelf || !validPrefs(raw) {
-					return e.BadRequestError("Ungültige Einstellungen.", nil)
-				}
-			}
-		}
 
 		if err := e.Next(); err != nil {
 			return err
@@ -199,6 +192,7 @@ func (s *Server) registerUserHooks(app core.App) {
 			e.Record.WithCustomData(true)
 			e.Record.Set("locked", isLocked(e.Record, now()))
 			e.Record.Set("has_keys", e.Record.GetString("public_enc_key") != "")
+			e.Record.Set("two_factor", e.Record.GetBool("totp_enabled"))
 			return e.Next()
 		}
 		e.Record.Hide(privateUserFields...)

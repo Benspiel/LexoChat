@@ -1,0 +1,55 @@
+name: Release Windows app
+
+# Manual release of the signed Windows installer + updater artifacts.
+# Required repository secrets (never in the repo):
+#   LEXICHAT_SERVER                     https origin of the practice server
+#   TAURI_SIGNING_PRIVATE_KEY           update signing key (pnpm tauri signer generate)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+#   LEXICHAT_UPDATER_PUBKEY             matching public key
+#   WINDOWS_CERTIFICATE / WINDOWS_CERTIFICATE_PASSWORD   code signing certificate (PFX, base64)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Install
+        run: corepack enable; pnpm install --frozen-lockfile
+      - name: Import code signing certificate
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $bytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx", $bytes)
+          $cert = Import-PfxCertificate -FilePath "$env:RUNNER_TEMP\cert.pfx" -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force)
+          Remove-Item "$env:RUNNER_TEMP\cert.pfx"
+          "TAURI_WINDOWS_THUMBPRINT=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Build signed installer
+        working-directory: apps/desktop
+        env:
+          LEXICHAT_SERVER: ${{ secrets.LEXICHAT_SERVER }}
+          LEXICHAT_UPDATER_PUBKEY: ${{ secrets.LEXICHAT_UPDATER_PUBKEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm build:windows
+      - name: Checksums
+        shell: pwsh
+        run: Get-ChildItem apps/desktop/src-tauri/target/release/bundle -Recurse -Include *.exe,*.msi,*.sig | Get-FileHash -Algorithm SHA256 | Format-Table -AutoSize | Out-String -Width 300 | Tee-Object apps/desktop/src-tauri/target/release/bundle/SHA256SUMS.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lexichat-windows
+          path: apps/desktop/src-tauri/target/release/bundle
+          retention-days: 14

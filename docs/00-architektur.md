@@ -1,6 +1,6 @@
 # LexiChat – Architektur
 
-> Stand: Phase 2 (Admin-Web-App). Dieses Dokument wird mit jeder Phase fortgeschrieben.
+> Stand: Phase 6 (alle Phasen umgesetzt, Abnahme siehe [Security-Review](04-security-review.md)).
 
 ## 0. Annahmen (bitte prüfen)
 
@@ -14,7 +14,7 @@ Diese Annahmen wurden getroffen, weil sie im Auftrag nicht festgelegt waren. Jed
 | A4 | Arbeitsplätze sind **Windows 10/11** mit WebView2 (für Tauri v2). | – |
 | A5 | Chat-Nachrichten sind **keine Patientendokumentation** (§ 630f BGB). Dokumentationspflichtige Inhalte werden in das Praxisverwaltungssystem (PVS) übertragen. Daher ist automatische Löschung (Standard 90 Tage) zulässig. | Falls die Praxis Chats als Dokumentation nutzen will: Löschkonzept und Aufbewahrungsfristen müssen neu bewertet werden (rechtlich prüfen lassen). |
 | A6 | Keine E-Mail-Zustellung (kein SMTP). Passwort-Resets laufen ausschließlich über Admins. | – |
-| A7 | Die Design-Datei `/design/DESIGN.md` lag beim Start **nicht** im Repository. Umgesetzt werden die im Auftrag genannten Tokens (Abschnitt 7 des Auftrags). | Abweichungen werden in Phase 2 nachgezogen, sobald die Datei vorliegt. |
+| A7 | `/design/DESIGN.md` (Mobbin-Analyse) liegt seit Phase 3 im Repository; das Design-System wurde daran angeglichen (siehe [03-design-system.md](03-design-system.md)). | – |
 
 ## 1. Überblick
 
@@ -49,9 +49,9 @@ Diese Annahmen wurden getroffen, weil sie im Auftrag nicht festgelegt waren. Jed
 |---|---|---|
 | `apps/server` | PocketBase + LexiChat-Erweiterungen (Go) | 1 ✅ |
 | `apps/admin-web` | Admin-Web-App (React + Vite) | 2 ✅ |
-| `apps/desktop` | Windows-App (Tauri v2 + React) | 3 |
+| `apps/desktop` | Windows-App (Tauri v2 + React) | 3 ✅ |
 | `packages/ui` | Design-System (Tokens, Komponenten), siehe [03-design-system.md](03-design-system.md) | 2 ✅ |
-| `packages/crypto` | Client-Krypto (libsodium): KDF ✅, Schlüssel/Nachrichten in Phase 3 | 2/3 |
+| `packages/crypto` | Client-Krypto (libsodium): KDF, Schlüssel, Nachrichtenformat v1, Sicherheitsnummern | 2/3 ✅ |
 | `packages/shared` | API-Client, Passwort-Policy, Audit-Texte | 2 ✅ |
 | `deploy` | Docker Compose, Caddy, Skripte | 1 ✅ |
 | `docs` | Architektur, Bedrohungsmodell, Rechtekonzept, Datenschutz | fortlaufend |
@@ -155,7 +155,7 @@ Alle Collections starten mit „alles gesperrt“. Die konkreten Regeln stehen i
 | `sessions` | angemeldete Geräte | `user`, `client` (desktop/admin_web), `device_name`, `ip_hash`, `last_seen`, `expires_at` |
 | `chats` | 1:1-Chats | `type` (`direct`, erweiterbar), `members` (genau 2), `member_key` (eindeutig, sortiert), `last_message_at` |
 | `messages` | verschlüsselte Nachrichten | `chat`, `sender`, `v`, `ciphertext`, `nonce`, `envelopes`, `signature`, `is_broadcast`, `broadcast`, `reply_to`, `edited_at`, `expires_at` |
-| `broadcasts` | Broadcast-Klammer (Phase 4) | `sender`, `recipient_count`, `expires_at` |
+| `broadcasts` | Broadcast-Klammer | `sender`, `recipient_count`, `expires_at` |
 | `receipts` | Zustell-/Lesebestätigungen | `message`, `user`, `delivered_at`, `read_at` (eindeutig je Nachricht+Nutzer) |
 | `audit_logs` | Audit (append-only, hash-verkettet) | `action`, `actor_id`, `actor_username`, `target_*`, `details`, `ip_hash`, `prev_hash`, `hash`, `created` |
 
@@ -186,9 +186,33 @@ LexiChat ist als **interner** Messenger für Beschäftigte einer Praxis konzipie
 |---|---|---|
 | 1 | Monorepo, Docker/Caddy, Collections + API-Rules + Rules-Tests, Admin-Bootstrap, Sitzungen, Brute-Force-Schutz, Audit-Log, Aufbewahrung, Backup/Restore-Skripte, Architektur/Bedrohungsmodell/Rechtekonzept | ✅ |
 | 2 | Admin-Web-App, Design-System, TOTP-2FA, Passwort-Policy, API-Client, E2E-/axe-Tests | ✅ |
-| 3 | Windows-App-Kern, `packages/crypto`, Realtime, Benachrichtigungen, Sperre | offen |
-| 4 | Broadcasts (`POST /api/lexichat/broadcasts`, serverseitige Empfängerliste) | offen |
-| 5 | Datenschutz-Paket, Löschkonzept technisch (Export Art. 15/20 usw.) | offen |
-| 6 | Härtung, ASVS-L2-Checkliste, Restore-Test, Release-Build | offen |
+| 3 | Windows-App (Tauri v2), `packages/crypto`, Realtime, Benachrichtigungen, Sperre, Credential Manager, verschlüsselter Cache | ✅ (nativ nur gegen Windows-Ziel kompiliert, nicht auf echtem Windows getestet) |
+| 4 | Broadcasts mit serverseitiger Empfängerliste, Lesestatus | ✅ |
+| 5 | Privatsphäre-Einstellungen, Kontaktverzeichnis, Export Art. 15/20, Anonymisierung, Datenschutz-Dokumente | ✅ (Dokumente sind Entwürfe) |
+| 6 | Security-Review, ASVS-L2-Checkliste, Restore-Test, Release-Pipeline Windows | ✅ (Installer nicht real gebaut/signiert) |
 
-Geplanter Broadcast-Ablauf (Phase 4, hier festgehalten, weil er das Datenmodell bestimmt): Client holt `GET /api/lexichat/broadcasts/recipients` (aktive Nutzer + öffentliche Schlüssel + Versionsstempel) → verschlüsselt pro Empfänger → `POST /api/lexichat/broadcasts` mit dem Stempel. Der Server prüft, dass die Empfängermenge **exakt** dem aktuellen Stand der aktiven Nutzer entspricht (sonst `409`, Client wiederholt), legt fehlende 1:1-Chats an und schreibt alle Nachrichten in einer Transaktion. Der Client kann so niemanden auslassen oder hinzufügen.
+## 8. Windows-App (Phase 3)
+
+- **Tauri v2** mit Plugins `notification`, `single-instance`, `autostart`, `updater` (signierte Updates, `native-tls`/Schannel), `process`. Capabilities in `src-tauri/capabilities/default.json` auf das Nötigste begrenzt.
+- **Geheimnisse**: Der lokale Geräteschlüssel liegt im **Windows Credential Manager** (`keyring`, DPAPI). Damit wird der lokale Nachrichten-Cache mit XChaCha20-Poly1305 verschlüsselt. Private Chat-Schlüssel liegen nur im Arbeitsspeicher und gewrappt (KEK aus dem Passwort) auf dem Server.
+- **Screenshot-Schutz** über `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` (Einstellung pro Gerät, standardmäßig aus, weil es Bildschirmfreigaben im Support erschwert; Abfotografieren lässt sich nicht verhindern).
+- **Sperre**: nach Leerlauf (Einstellung `desktop_lock_minutes`) und über das Tray-Menü „Sperren“; Entsperren erfordert das Passwort, Schlüssel werden beim Sperren aus dem Speicher entfernt.
+- **Benachrichtigungen** standardmäßig ohne Absender und Inhalt; „Absender“ oder „Absender + Text“ nur nach Opt-in (`notificationContent`).
+- **Plattform-Abstraktion** (`src/lib/platform.ts`): Im Browser (E2E-Tests) laufen dieselben Abläufe mit In-Memory-Fallbacks; nichts wird im Browser-Speicher persistiert.
+- **Release**: `scripts/build-windows.mjs` setzt Server-URL, CSP und Updater-Endpunkt fest ein; GitHub-Workflow `release-windows.yml` (manuell) baut und signiert mit dem Zertifikat aus dem Secret-Store.
+
+## 9. Broadcasts (Phase 4)
+
+Client holt `GET /api/lexichat/broadcasts/recipients` (aktive Nutzer + öffentliche Schlüssel + Versionsstempel) → verschlüsselt pro Empfänger (Kontext `bcast:<recipientId>`) → `POST /api/lexichat/broadcasts` mit dem Stempel. Der Server prüft, dass die Empfängermenge **exakt** dem aktuellen Stand der aktiven Nutzer entspricht (sonst `409`, Client wiederholt), legt fehlende 1:1-Chats an und schreibt alle Nachrichten in einer Transaktion. Der Client kann so niemanden auslassen oder hinzufügen. Berechtigung (`broadcast_permission`: nur Admins / alle) und Limit pro Stunde (`broadcasts_per_hour`) sind Einstellungen. Der Absender sieht nur Zahlen (zugestellt / gelesen von x Empfängern, aus `receipts`), keine Namen; „gelesen“ zählt nur bei Empfängern mit aktivierten Lesebestätigungen.
+
+## 10. Privatsphäre und Betroffenenrechte (Phase 5)
+
+| Endpunkt | Zweck |
+|---|---|
+| `GET/POST /api/lexichat/me/prefs` | eigene Einstellungen (Lesebestätigungen, Tipp-Anzeige, Online-Status, Benachrichtigungsinhalt, Vorschau in der Chatliste) – **alle standardmäßig aus**; Tipp-/Online-Anzeige gegenseitig (wer sie nicht teilt, sieht sie auch nicht) |
+| `POST /api/lexichat/typing`, `GET /api/lexichat/presence` | flüchtige Signale über Realtime, nicht gespeichert |
+| `GET /api/lexichat/directory` | minimale Kontaktdaten (Name, Avatar, öffentliche Schlüssel) aktiver Nutzer und eigener Chat-Partner, auch wenn deaktiviert/anonymisiert |
+| `GET /api/lexichat/me/export` | Datenexport Art. 15/20 (JSON `lexichat-export-v1`) |
+| `GET /api/lexichat/admin/users/{id}/export`, `POST …/anonymize` | Auskunft und Anonymisierung durch Admins (2FA + Audit) |
+
+Felder `prefs`, `totp_enabled`, `deactivated_at` sind im Schema **hidden** (nicht lesbar und nicht filterbar); der abgeleitete Wert `two_factor` wird nur Eigentümer und Admins angezeigt. Deaktivierte Konten werden nach `anonymize_deactivated_days` automatisch anonymisiert.

@@ -156,10 +156,11 @@ func TestUsersCannotSeeOrSetTotpFields(t *testing.T) {
 	c := env.login(alice)
 
 	res := c.do("GET", "/api/collections/users/records", nil)
-	if strings.Contains(res.Raw, "totp_secret") || strings.Contains(res.Raw, "totp_pending") || strings.Contains(res.Raw, `"totp_enabled"`) && strings.Count(res.Raw, `"totp_enabled"`) > 1 {
+	if strings.Contains(res.Raw, "totp_secret") || strings.Contains(res.Raw, "totp_pending") || strings.Contains(res.Raw, `"totp_enabled"`) || strings.Count(res.Raw, `"two_factor"`) > 1 {
 		t.Fatalf("totp fields leaked: %s", res.Raw)
 	}
-	if r := c.do("PATCH", "/api/collections/users/records/"+alice.Id, map[string]any{"totp_enabled": true}); r.Status == 200 {
+	c.do("PATCH", "/api/collections/users/records/"+alice.Id, map[string]any{"totp_enabled": true})
+	if env.reload(alice).GetBool("totp_enabled") {
 		t.Fatal("totp_enabled must not be settable")
 	}
 }

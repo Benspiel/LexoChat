@@ -27,6 +27,14 @@ const override = {
   app: { security: { csp } },
   plugins: { updater: { pubkey, endpoints: [`${server}/updates/latest.json`] } },
 };
+// Authenticode signing (certificate imported into the user store, see release workflow)
+if (process.env.TAURI_WINDOWS_THUMBPRINT) {
+  override.bundle = {
+    windows: { certificateThumbprint: process.env.TAURI_WINDOWS_THUMBPRINT, digestAlgorithm: "sha256", timestampUrl: "http://timestamp.digicert.com" },
+  };
+} else {
+  console.warn("WARNING: TAURI_WINDOWS_THUMBPRINT not set – the installer will NOT be code signed.");
+}
 
 execFileSync("pnpm", ["tauri", "build", "--config", JSON.stringify(override)], {
   stdio: "inherit",

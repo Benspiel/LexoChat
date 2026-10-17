@@ -138,7 +138,7 @@ export function UsersView({ me }: { me: UserRecord }) {
                     <td>
                       <StatusBadges user={u} />
                     </td>
-                    <td>{u.totp_enabled ? "Ja" : "Nein"}</td>
+                    <td>{u.two_factor ? "Ja" : "Nein"}</td>
                     <td className="lx-small">{formatDate(u.created)}</td>
                     <td>
                       <Button variant="soft" size="sm" onClick={() => setManaging(u)} aria-label={`${u.name} verwalten`}>
@@ -453,7 +453,7 @@ function ManageUserDialog({
                   Passwort zurücksetzen
                 </Button>
               )}
-              {!self && user.totp_enabled && (
+              {!self && user.two_factor && (
                 <Button variant="soft" size="sm" onClick={() => setConfirm({ kind: "reset-2fa" })}>
                   2FA zurücksetzen
                 </Button>

@@ -233,3 +233,33 @@ func (s *Server) handleDirectory(e *core.RequestEvent) error {
 	})
 	return e.JSON(http.StatusOK, map[string]any{"users": out})
 }
+
+func (s *Server) handleGetPrefs(e *core.RequestEvent) error {
+	me, err := e.App.FindRecordById(ColUsers, e.Auth.Id)
+	if err != nil {
+		return e.NotFoundError("", nil)
+	}
+	return e.JSON(http.StatusOK, userPrefs(me))
+}
+
+// handleSetPrefs stores the privacy preferences (hidden field, only via this endpoint).
+func (s *Server) handleSetPrefs(e *core.RequestEvent) error {
+	info, err := e.RequestInfo()
+	if err != nil || !validPrefs(info.Body) {
+		return e.BadRequestError("Ungültige Einstellungen.", nil)
+	}
+	me, err := e.App.FindRecordById(ColUsers, e.Auth.Id)
+	if err != nil {
+		return e.NotFoundError("", nil)
+	}
+	current := map[string]any{}
+	_ = me.UnmarshalJSONField("prefs", &current)
+	for k, v := range info.Body {
+		current[k] = v
+	}
+	me.Set("prefs", current)
+	if err := e.App.Save(me); err != nil {
+		return e.BadRequestError("Die Einstellungen konnten nicht gespeichert werden.", err)
+	}
+	return e.JSON(http.StatusOK, userPrefs(me))
+}

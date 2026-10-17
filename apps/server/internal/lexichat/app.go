@@ -3,6 +3,8 @@
 package lexichat
 
 import (
+	"regexp"
+
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
@@ -56,6 +58,11 @@ func Register(app core.App, cfg Config) (*Server, error) {
 			}))
 
 			e.Router.Bind(&hook.Handler[*core.RequestEvent]{
+				Id:       "lexichatBlockUnusedAuth",
+				Priority: apis.DefaultLoadAuthTokenMiddlewarePriority - 1,
+				Func:     blockUnusedAuthEndpoints,
+			})
+			e.Router.Bind(&hook.Handler[*core.RequestEvent]{
 				Id:       "lexichatSession",
 				Priority: apis.DefaultLoadAuthTokenMiddlewarePriority + 1,
 				Func:     s.sessionMiddleware,
@@ -93,4 +100,16 @@ func (s *Server) Audit(app core.App, entry AuditEntry) {
 	if err := s.audit.Write(app, entry); err != nil {
 		app.Logger().Error("audit write failed", "action", entry.Action, "error", err)
 	}
+}
+
+// unusedAuthEndpoint matches PocketBase auth endpoints LexiChat does not use
+// (e-mail based flows, OTP, OAuth2, impersonation). They are disabled in the
+// collection config anyway; blocking them removes attack surface.
+var unusedAuthEndpoint = regexp.MustCompile(`^/api/collections/users/(request-password-reset|confirm-password-reset|request-verification|confirm-verification|request-email-change|confirm-email-change|request-otp|auth-with-otp|auth-with-oauth2|impersonate)(/|$)`)
+
+func blockUnusedAuthEndpoints(e *core.RequestEvent) error {
+	if unusedAuthEndpoint.MatchString(e.Request.URL.Path) {
+		return e.NotFoundError("", nil)
+	}
+	return e.Next()
 }

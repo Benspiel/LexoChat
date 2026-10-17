@@ -1,6 +1,6 @@
 # LexiChat – Betriebshandbuch
 
-> Stand: Phase 2 (Server + Admin-Web-App). Abschnitte zur Windows-App folgen in Phase 3.
+> Stand: Phase 6 (Server, Admin-Web-App, Windows-App).
 
 ## 1. Voraussetzungen
 
@@ -80,7 +80,13 @@ Migrationen laufen beim Start automatisch. PocketBase-Updates vorher lokal teste
 ```
 Das Skript prüft die Prüfsumme, sichert den aktuellen Stand verschlüsselt, spielt das Backup ein und prüft die Audit-Kette. Danach Test-Anmeldung.
 
-**Restore-Test:** mindestens halbjährlich auf einem separaten System durchführen und protokollieren (Datum, Backup-Datei, Ergebnis, Person). Status: in der Entwicklungsumgebung wurde der Inhalt eines Backups erfolgreich entpackt und die Audit-Kette geprüft; ein vollständiger Restore-Test mit Docker steht noch aus (Phase 6).
+**Restore-Test:** mindestens halbjährlich auf einem separaten System durchführen und protokollieren.
+
+| Datum | Backup-Datei | Umgebung | Schritte | Ergebnis | Person |
+|---|---|---|---|---|---|
+| 2026-10 (Entwicklung) | Test-Backup, mit `age` verschlüsselt | Entwicklungsumgebung, Server-Binary **ohne Docker** | Backup über die API gestreamt → `age`-verschlüsselt (kein ZIP-Header im Chiffrat sichtbar) → entschlüsselt → in leeres `pb_data` entpackt → Server gestartet | `/api/health` 200; Prelogin liefert gespeicherten Salt; `verify-audit` intakt; automatisierter Test `TestBackupRestoreRoundtrip` (Nachricht vorhanden, Anmeldung und Lesen funktionieren, Audit-Kette gültig) grün | Entwicklung |
+| | | Produktion/Staging mit Docker und `restore.sh` | | **ausstehend** – muss der Betreiber vor Produktivstart durchführen | |
+
 
 ## 5a. Admin-Web-App aktualisieren
 
@@ -89,6 +95,40 @@ cd /opt/lexichat && git pull && pnpm install --frozen-lockfile && pnpm build:adm
 rm -rf deploy/admin-web-dist && cp -r apps/admin-web/dist deploy/admin-web-dist
 ```
 Caddy liefert die neuen Dateien sofort aus (`index.html` wird nicht gecacht).
+
+## 5b. Windows-App bauen, signieren und verteilen
+
+**Einmalig (Betreiber):**
+1. **Update-Schlüssel** auf einem sicheren Rechner erzeugen: `pnpm --filter @lexichat/desktop tauri signer generate -w lexichat-updater.key`. Privaten Schlüssel + Passwort nur im Secret-Store ablegen (GitHub-Secrets `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`), öffentlichen Schlüssel als `LEXICHAT_UPDATER_PUBKEY`. **Geht der private Schlüssel verloren, können installierte Apps keine Updates mehr annehmen** (Neuinstallation nötig).
+2. **Code-Signing-Zertifikat** (OV/EV, ausgestellt auf die Praxis) als Base64-PFX in `WINDOWS_CERTIFICATE` + `WINDOWS_CERTIFICATE_PASSWORD`. Ohne Signatur warnt Windows SmartScreen. EV-Zertifikate liegen meist auf einem Hardware-Token und lassen sich dann **nicht** in GitHub Actions nutzen – in dem Fall lokal auf einem Windows-Build-Rechner bauen (ich kann nicht beurteilen, welches Zertifikatsprodukt Sie wählen; bitte mit dem Anbieter klären).
+3. `LEXICHAT_SERVER` = `https://<api-domain>` (wird fest in die App einkompiliert, inkl. CSP und Update-Endpunkt).
+
+**Je Release:**
+1. Version in `apps/desktop/src-tauri/tauri.conf.json` und `Cargo.toml` erhöhen.
+2. GitHub → Actions → „Release Windows“ manuell starten (oder lokal auf Windows: `pnpm --filter @lexichat/desktop build:windows` mit denselben Umgebungsvariablen).
+3. Artefakte (NSIS-Installer `*-setup.exe`, MSI, `.sig`-Dateien, `SHA256SUMS.txt`) herunterladen, Prüfsummen vergleichen.
+4. Auf dem Server unter `deploy/updates/` ablegen: Installer + `latest.json`, z. B.
+   ```json
+   {
+     "version": "1.0.1",
+     "notes": "Fehlerbehebungen",
+     "pub_date": "2026-10-17T12:00:00Z",
+     "platforms": {
+       "windows-x86_64": {
+         "signature": "<Inhalt der .sig-Datei des NSIS-Installers>",
+         "url": "https://<api-domain>/updates/LexiChat_1.0.1_x64-setup.exe"
+       }
+     }
+   }
+   ```
+   Caddy liefert `deploy/updates/` unter `/updates/` aus. Die App prüft die Signatur mit dem einkompilierten öffentlichen Schlüssel; manipulierte Dateien werden abgelehnt.
+5. Erstinstallation per Softwareverteilung/GPO (`msiexec /i LexiChat_….msi /qn`) oder NSIS-Installer (Installation für alle Benutzer).
+
+**Empfohlene Windows-Einstellungen (GPO):**
+- Benachrichtigungen auf dem Sperrbildschirm aus (Benutzerkonfiguration → Administrative Vorlagen → Startmenü und Taskleiste → Benachrichtigungen → „Popupbenachrichtigungen auf dem Sperrbildschirm deaktivieren“) – die genaue Bezeichnung kann je nach Windows-Version abweichen.
+- BitLocker, automatische Bildschirmsperre, keine lokalen Admin-Rechte, Windows-Updates.
+
+**Hinweis:** Die nativen Funktionen (Credential Manager, Toasts, Screenshot-Schutz, Tray, Autostart, Updater) wurden in der Entwicklungsumgebung nur gegen das Windows-Ziel kompiliert, **nicht auf echtem Windows ausgeführt**. Vor dem Rollout auf einem Test-PC prüfen: Anmeldung, „Angemeldet bleiben“ nach Neustart, Toast ohne Inhalt, Screenshot zeigt schwarzes Fenster, Tray „Sperren“, Update von Version n auf n+1.
 
 ## 6. Notfälle
 
@@ -100,7 +140,7 @@ Caddy liefert die neuen Dateien sofort aus (`index.html` wird nicht gecacht).
 | Gerät verloren/gestohlen | Admin: Sitzungen der Person beenden (oder Konto deaktivieren). Wirkt sofort. |
 | Admin ausgesperrt, anderer Admin vorhanden | Zweiter Admin setzt das Passwort zurück. |
 | Alle Admins ausgesperrt | Per SSH-Tunnel als Superuser im Dashboard `must_change_password` prüfen bzw. – falls kein Superuser existiert – `superuser upsert` ausführen, dann im Dashboard einem Konto die Rolle `admin` geben und anschließend über die Admin-Web-App ein neues Einmalpasswort setzen. Vorgang dokumentieren. |
-| Verdacht auf Serverkompromittierung | Incident-Response-Plan (`docs/datenschutz/08-…`, Phase 5): Server vom Netz, Beweise sichern, neu aufsetzen, Backup prüfen, alle Passwörter ändern lassen, Meldepflicht Art. 33 DSGVO prüfen (72 h). |
+| Verdacht auf Serverkompromittierung | Incident-Response-Plan (`docs/datenschutz/08-incident-response.md`): Server vom Netz, Beweise sichern, neu aufsetzen, Backup prüfen, alle Passwörter ändern lassen, Meldepflicht Art. 33 DSGVO prüfen (72 h). |
 | Audit-Kette meldet Fehler | Als Sicherheitsvorfall behandeln (Manipulation der Datenbank möglich). |
 
 ## 7. Monitoring (ohne personenbezogene Daten)

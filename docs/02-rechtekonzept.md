@@ -1,6 +1,6 @@
 # LexiChat – Rechtekonzept (API-Rules)
 
-> Stand: Phase 2. Quelle der Wahrheit ist die Migration `apps/server/migrations/1760700000_lexichat_init.go`; die Tests stehen in `apps/server/internal/lexichat/rules_test.go`.
+> Stand: Phase 6. Quelle der Wahrheit ist die Migration `apps/server/migrations/1760700000_lexichat_init.go`; die Tests stehen in `apps/server/internal/lexichat/rules_test.go`.
 
 ## Grundsätze
 
@@ -36,7 +36,7 @@ Zusätzlich (nicht als Rule ausdrückbar, per Middleware):
 
 | Aktion | Regel | Zusätzliche Prüfungen (Hooks) |
 |---|---|---|
-| list | `ACTIVE && (active = true \|\| id = @request.auth.id \|\| @request.auth.role = "admin")` | Nicht-Admins sehen bei Fremden **nicht**: `role`, `must_change_password`, `totp_enabled`, `email`, `created`, `updated`. Admins/Eigentümer erhalten zusätzlich die abgeleiteten, schreibgeschützten Werte `locked` und `has_keys`. Hidden-Felder (Schlüsselmaterial, KDF, Sperrzähler) sind für niemanden außer Superuser sichtbar **und nicht filterbar** (getestet). |
+| list | `ACTIVE && (active = true \|\| id = @request.auth.id \|\| @request.auth.role = "admin")` | Nicht-Admins sehen bei Fremden **nicht**: `role`, `must_change_password`, `email`, `created`, `updated`. Admins/Eigentümer erhalten zusätzlich die abgeleiteten, schreibgeschützten Werte `locked`, `has_keys` und `two_factor`. Hidden-Felder (Schlüsselmaterial, KDF, Sperrzähler, `totp_enabled`, `prefs`, `deactivated_at`) sind für niemanden außer Superuser sichtbar **und nicht filterbar** (getestet). |
 | view | `@request.auth.collectionName = "users" && (id = @request.auth.id \|\| (ACTIVE && (active = true \|\| @request.auth.role = "admin")))` | wie oben; eigener Datensatz auch bei `must_change_password` |
 | create | `null` | Konten nur über `POST /api/lexichat/admin/users` (ADMIN) oder CLI `bootstrap-admin` |
 | update | `(id = @request.auth.id && ACTIVE && @request.body.role:isset = false && @request.body.active:isset = false && @request.body.username:isset = false && @request.body.must_change_password:isset = false) \|\| (ADMIN)` | Feld-Allow-List: selbst `name`, `avatar`; Admin `name`, `avatar`, `username`, `role`, `active`. Passwort, E-Mail, Schlüssel, KDF nie über die Record-API. Keine Selbst-Herabstufung/-Deaktivierung. Deaktivierung ⇒ `tokenKey` neu + alle Sitzungen gelöscht. |
@@ -83,7 +83,7 @@ Zusätzlich (nicht als Rule ausdrückbar, per Middleware):
 | Aktion | Regel |
 |---|---|
 | list / view | `ACTIVE && sender = @request.auth.id` |
-| create / update / delete | `null` (Erzeugung in Phase 4 ausschließlich über `POST /api/lexichat/broadcasts`) |
+| create / update / delete | `null` (Erzeugung ausschließlich über `POST /api/lexichat/broadcasts`) |
 
 ### `receipts`
 
@@ -115,6 +115,20 @@ Zusätzlich (nicht als Rule ausdrückbar, per Middleware):
 | `POST /api/lexichat/admin/users/{id}/reset-password` | ADMIN + 2FA | Einmalpasswort, Sitzungen beenden, Sperre aufheben (nicht für sich selbst) |
 | `POST /api/lexichat/admin/users/{id}/reset-2fa` | ADMIN + 2FA | TOTP entfernen, Sitzungen beenden (nicht für sich selbst) |
 | `POST /api/lexichat/admin/users/{id}/unlock` | ADMIN + 2FA | Kontosperre nach Fehlversuchen aufheben |
+| `POST /api/lexichat/admin/users/{id}/anonymize` | ADMIN + 2FA | Konto anonymisieren (Name, Benutzername, Avatar, verpackte private Schlüssel, Einstellungen und Sitzungen entfernen, deaktivieren; öffentliche Schlüssel bleiben zur Signaturprüfung alter Nachrichten; nicht sich selbst, nicht der letzte Admin) |
+| `GET /api/lexichat/admin/users/{id}/export` | ADMIN + 2FA | Datenauskunft Art. 15 (ohne Nachrichteninhalte, die der Server nicht kennt) |
+| `GET` / `POST /api/lexichat/me/prefs` | ACTIVE | eigene Privatsphäre-Einstellungen (Allow-List der Schlüssel, Werte validiert) |
+| `GET /api/lexichat/me/export` | ACTIVE | eigener Datenexport Art. 15/20 |
+| `GET /api/lexichat/directory` | ACTIVE | Minimaldaten aktiver Nutzer + eigener Chat-Partner (auch deaktiviert/anonymisiert) |
+| `POST /api/lexichat/typing` | ACTIVE + Mitglied des Chats | Tipp-Signal an den Chat-Partner, nur wenn **beide** es aktiviert haben; nicht gespeichert |
+| `GET /api/lexichat/presence` | ACTIVE | Online-Status von Chat-Partnern, nur gegenseitig |
+| `GET /api/lexichat/broadcasts/recipients` | ACTIVE + Broadcast-Recht | aktive Empfänger + öffentliche Schlüssel + Stempel |
+| `POST /api/lexichat/broadcasts` | ACTIVE + Broadcast-Recht + Limit/Stunde | Broadcast senden; `409` bei abweichender Empfängermenge |
+| `GET /api/lexichat/broadcasts/{id}/status` | nur Absender | Zahlen zugestellt/gelesen |
+
+### Gesperrte PocketBase-Endpunkte
+
+Nicht genutzte Auth-Abläufe antworten mit `404` (Server-Middleware **und** Caddy): `request-/confirm-password-reset`, `request-/confirm-verification`, `request-/confirm-email-change`, `request-otp`, `auth-with-otp`, `auth-with-oauth2`, `impersonate`. Zusätzlich am Proxy: `/_/` und alle Superuser-APIs.
 
 ## Automatisierte Negativtests (Auszug, alle grün)
 
@@ -126,3 +140,5 @@ Zusätzlich (nicht als Rule ausdrückbar, per Middleware):
 - Deaktivierung, Admin-Reset und Abmelden machen Token/Sitzung sofort ungültig; Realtime-Verbindungen werden getrennt.
 - Letzter Admin kann nicht herabgestuft oder gelöscht werden (auch nicht auf Modellebene).
 - Admins ohne 2FA kommen an keine Verwaltungsfunktion; TOTP-Codes sind nur einmal gültig; falsche Codes zählen zur Sperre; TOTP-Felder sind weder sicht- noch setzbar.
+- Private Felder (`prefs`, `totp_enabled`, `deactivated_at`) sind nicht als Filter-Orakel nutzbar; ungenutzte Auth-Endpunkte liefern `404`.
+- Broadcasts: Empfängerliste nicht manipulierbar (`409`), Recht und Stundenlimit greifen; Tipp-/Online-Signale nur gegenseitig; Export und Anonymisierung nur für Eigentümer bzw. Admins.
