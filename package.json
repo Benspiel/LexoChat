@@ -14,7 +14,7 @@
     "e2e:admin": "pnpm --filter @lexichat/admin-web e2e"
   },
   "devDependencies": {
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vitest": "5.0.3"
   },
   "pnpm": {
