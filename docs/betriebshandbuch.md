@@ -85,7 +85,8 @@ Das Skript prüft die Prüfsumme, sichert den aktuellen Stand verschlüsselt, sp
 | Datum | Backup-Datei | Umgebung | Schritte | Ergebnis | Person |
 |---|---|---|---|---|---|
 | 2026-10 (Entwicklung) | Test-Backup, mit `age` verschlüsselt | Entwicklungsumgebung, Server-Binary **ohne Docker** | Backup über die API gestreamt → `age`-verschlüsselt (kein ZIP-Header im Chiffrat sichtbar) → entschlüsselt → in leeres `pb_data` entpackt → Server gestartet | `/api/health` 200; Prelogin liefert gespeicherten Salt; `verify-audit` intakt; automatisierter Test `TestBackupRestoreRoundtrip` (Nachricht vorhanden, Anmeldung und Lesen funktionieren, Audit-Kette gültig) grün | Entwicklung |
-| | | Produktion/Staging mit Docker und `restore.sh` | | **ausstehend** – muss der Betreiber vor Produktivstart durchführen | |
+| 2026-10-17 (Entwicklung) | `lexichat-20261017T193026Z.zip.age` (Test) | Docker Compose lokal, Testdomains `chat.localhost`/`admin.localhost` | `create-first-admin.sh` → `backup.sh` → Änderung (Notfall-Superuser angelegt) → `restore.sh` | Prüfsumme OK, vorheriger Stand verschlüsselt gesichert, Änderung nach Restore entfernt, Admin-Konto vorhanden, Audit-Kette intakt, Health 200 | Entwicklung |
+| | | Produktivserver | | **ausstehend** – vor Produktivstart auf dem echten Server wiederholen | |
 
 
 ## 5a. Admin-Web-App aktualisieren

@@ -2,7 +2,7 @@
 
 Interner, Ende-zu-Ende-verschlüsselter Messenger für Arztpraxen (1:1-Chats und Broadcasts).
 
-> **Status: alle 6 Phasen umgesetzt (MVP).** Vor dem Produktivbetrieb noch nötig: externer Penetrationstest, Prüfung der Datenschutz-Entwürfe durch DSB/Rechtsberatung, Code-Signing-Zertifikat + Update-Schlüssel, Test der Windows-App auf echten Praxis-PCs, Restore-Test mit Docker. Details: [Security-Review](docs/04-security-review.md).
+> **Status: alle 6 Phasen umgesetzt (MVP).** Vor dem Produktivbetrieb noch nötig: externer Penetrationstest, Prüfung der Datenschutz-Entwürfe durch DSB/Rechtsberatung, Code-Signing-Zertifikat + Update-Schlüssel, Test der Windows-App auf echten Praxis-PCs, Restore-Test auf dem echten Server. Details: [Security-Review](docs/04-security-review.md).
 
 | Komponente | Technik | Ort |
 |---|---|---|

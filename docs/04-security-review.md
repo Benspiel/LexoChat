@@ -40,7 +40,7 @@
 2. **Keine Forward Secrecy** (siehe Architektur 3.4).
 3. **TOTP ist nicht phishing-resistent**; WebAuthn/FIDO2 wäre die Ausbaustufe.
 4. **Windows-Installer nicht real gebaut/signiert** – die Release-Pipeline ist vorbereitet, Code-Signing-Zertifikat und Update-Schlüssel fehlen (Betreiberaufgabe). Rust-Code wurde gegen das Windows-Ziel geprüft (`cargo check`/`clippy`), nicht auf einem echten Windows ausgeführt (Credential Manager, Toasts, Screenshot-Schutz, Tray daher **ungetestet**).
-5. **Docker-Images nicht gebaut** (kein Docker-Daemon in der Entwicklungsumgebung); Restore wurde auf Binary-Ebene geprüft, das Docker-basierte `restore.sh` nicht.
+5. **Docker-Stack lokal geprüft, nicht auf einem echten Server**: Images mit den gepinnten Digests gebaut, Stack mit Testdomains (`*.localhost`, interne Caddy-CA) gestartet; geprüft wurden Healthcheck, TLS 1.3 only (TLS 1.2 abgelehnt), Security-Header, Sperre von `/_/`, Superuser- und E-Mail-Endpunkten (404), non-root/read-only, PocketBase-Port nur auf 127.0.0.1, `create-first-admin.sh`, `backup.sh` und `restore.sh`. **Nicht** geprüft: echtes Let's-Encrypt-Zertifikat, Firewall/Host-Härtung, Anmeldung mit der Windows-App gegen diesen Stack (die Anmeldung ist durch die E2E-Tests gegen dasselbe Server-Programm abgedeckt).
 6. **Zertifikat-Pinning** im Desktop-Client nicht umgesetzt: Bei Let's-Encrypt-Zertifikaten mit 90-Tage-Rotation ist Pinning fehleranfällig; Schutz stattdessen durch fest einkompilierte Server-URL, HSTS und Windows-Zertifikatsprüfung. Bei eigener CA kann Pinning nachgerüstet werden.
 7. **Dateianhänge, Gruppenchats** nicht enthalten (Nicht-Ziele des MVP).
 8. Metadaten (wer mit wem wann) sind für den Server sichtbar.
