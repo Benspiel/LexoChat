@@ -185,7 +185,13 @@ export function UsersView({ me }: { me: UserRecord }) {
 export function StatusBadges({ user }: { user: UserRecord }) {
   return (
     <span className="lx-row">
-      {user.active ? <Badge variant="neutral">Aktiv</Badge> : <Badge variant="outline">Deaktiviert</Badge>}
+      {user.anonymized ? (
+        <Badge variant="outline">Anonymisiert</Badge>
+      ) : user.active ? (
+        <Badge variant="neutral">Aktiv</Badge>
+      ) : (
+        <Badge variant="outline">Deaktiviert</Badge>
+      )}
       {user.locked && (
         <Badge variant="ink">
           <Icon name="lock" size={12} /> Gesperrt
@@ -328,7 +334,19 @@ type Confirm =
   | { kind: "reset-password" }
   | { kind: "reset-2fa" }
   | { kind: "deactivate" }
+  | { kind: "anonymize" }
   | { kind: "delete" };
+
+/** Downloads the Art. 15/20 export of a person as JSON file. */
+async function downloadExport(user: UserRecord) {
+  const data = await client.request<unknown>("GET", `/api/lexichat/admin/users/${user.id}/export`);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `lexichat-datenauskunft-${user.username}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 function ManageUserDialog({
   me,
@@ -451,6 +469,7 @@ function ManageUserDialog({
                 </Button>
               )}
               {!self &&
+                !user.anonymized &&
                 (user.active ? (
                   <Button variant="soft" size="sm" onClick={() => setConfirm({ kind: "deactivate" })}>
                     Deaktivieren
@@ -465,6 +484,19 @@ function ManageUserDialog({
                     Reaktivieren
                   </Button>
                 ))}
+              <Button
+                variant="soft"
+                size="sm"
+                loading={busy}
+                onClick={() => void run(() => downloadExport(user), `Datenauskunft für ${user.name} wurde heruntergeladen.`)}
+              >
+                Datenauskunft (Art. 15)
+              </Button>
+              {!self && !user.anonymized && (
+                <Button variant="outline" size="sm" onClick={() => setConfirm({ kind: "anonymize" })}>
+                  Anonymisieren
+                </Button>
+              )}
               {!self && (
                 <Button variant="outline" size="sm" onClick={() => setConfirm({ kind: "delete" })}>
                   Konto löschen
@@ -521,6 +553,21 @@ function ManageUserDialog({
         <p>
           {user.name} wird sofort auf allen Geräten abgemeldet und kann sich nicht mehr anmelden. Nachrichten bleiben bis zum Ablauf der
           Aufbewahrungsfrist erhalten. Die Deaktivierung kann jederzeit rückgängig gemacht werden.
+        </p>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirm?.kind === "anonymize"}
+        title="Konto anonymisieren?"
+        confirmLabel="Anonymisieren"
+        busy={busy}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => void run(() => client.request("POST", `/api/lexichat/admin/users/${user.id}/anonymize`), `Das Konto ${user.username} wurde anonymisiert.`)}
+      >
+        <p>
+          Name, Benutzername, Avatar, Schlüssel, Einstellungen und Lesebestätigungen werden entfernt; das Konto wird dauerhaft
+          deaktiviert. Die Gesprächspartner behalten ihre Chats bis zum Ablauf der Aufbewahrungsfrist; als Absender erscheint dann
+          „Ehemaliges Konto“. Dies kann nicht rückgängig gemacht werden (Löschkonzept, Art. 17 DSGVO).
         </p>
       </ConfirmDialog>
 

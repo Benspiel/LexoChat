@@ -24,3 +24,6 @@ apps/server/lexichat
 .vscode/
 apps/admin-web/test-results/
 playwright-report/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+apps/desktop/test-results/

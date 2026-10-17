@@ -1,0 +1,63 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LexiChat",
+  "version": "1.0.0",
+  "identifier": "de.lexichat.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5174",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "LexiChat",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 760,
+        "minHeight": 520,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'none'",
+        "script-src": "'self' 'wasm-unsafe-eval'",
+        "style-src": "'self'",
+        "img-src": "'self' blob: data: https://chat.praxis.example",
+        "font-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost https://chat.praxis.example",
+        "frame-ancestors": "'none'",
+        "base-uri": "'none'",
+        "form-action": "'none'"
+      },
+      "freezePrototype": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "publisher": "{{PRAXIS_NAME}}",
+    "copyright": "{{PRAXIS_NAME}}",
+    "category": "Business",
+    "shortDescription": "Interner Praxis-Messenger",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico", "icons/icon.png"],
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "webviewInstallMode": { "type": "embedBootstrapper" },
+      "nsis": { "installMode": "perMachine", "languages": ["German"] },
+      "wix": { "language": "de-DE" }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_THE_UPDATER_PUBLIC_KEY (pnpm tauri signer generate)",
+      "endpoints": ["https://chat.praxis.example/updates/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  }
+}

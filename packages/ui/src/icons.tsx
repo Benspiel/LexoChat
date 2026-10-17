@@ -10,6 +10,7 @@ const PATHS = {
   logout: "M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10",
   dot: "M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
   minus: "M6 12h12",
+  more: "M6 12h.01M12 12h.01M18 12h.01",
 } as const;
 
 export type IconName = keyof typeof PATHS;

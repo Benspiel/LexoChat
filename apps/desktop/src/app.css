@@ -1,0 +1,367 @@
+html,
+body,
+#root {
+  height: 100%;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font-weight: var(--w-heading);
+}
+
+/* ---------- auth (ex-auth-form-card: canvas-soft card on white) ---------- */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s5);
+  background: var(--canvas);
+}
+.auth-card {
+  width: min(480px, 100%);
+}
+.notice-text ul {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.recovery-key,
+.safety-number {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--s2);
+  padding: var(--s4);
+  border-radius: var(--r-tile);
+  background: var(--canvas);
+  font-size: 18px;
+  text-align: center;
+  user-select: all;
+}
+.safety-number {
+  grid-template-columns: repeat(6, 1fr);
+  background: var(--canvas-soft);
+  font-size: 16px;
+}
+.qr {
+  border-radius: var(--r-tile);
+  border: 1px solid var(--hairline);
+}
+
+/* ---------- shell ---------- */
+.shell {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) 1fr;
+  height: 100vh;
+  min-width: 720px;
+}
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--canvas-soft);
+}
+.sidebar .lx-input {
+  background: var(--canvas);
+}
+.sidebar-top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4);
+}
+.chat-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--s2);
+}
+.chat-list ul,
+.pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pick-list {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+/* ex-app-shell-row: rounded.sm, padding xs md, active = canvas + ink indicator */
+.chat-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s2) var(--s4);
+  border: 0;
+  border-radius: var(--r-tile);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.chat-row:hover {
+  background: var(--hairline-soft);
+}
+.pick-list .chat-row:hover {
+  background: var(--canvas-soft);
+}
+.chat-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.chat-row[aria-current="true"] {
+  background: var(--canvas);
+}
+.chat-row[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+}
+.chat-row__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.row-name {
+  display: block;
+  font-weight: var(--w-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row-preview {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.avatar-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.presence-dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  border: 2px solid var(--canvas);
+}
+
+.sidebar-bottom {
+  position: relative;
+  padding: var(--s3);
+  border-top: 1px solid var(--hairline);
+}
+.me-button {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s2) var(--s3);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.me-button:hover {
+  background: var(--hairline-soft);
+}
+.me-button > span {
+  display: flex;
+  flex-direction: column;
+}
+.me-menu {
+  position: absolute;
+  left: var(--s3);
+  right: var(--s3);
+  bottom: calc(100% - 4px);
+  z-index: 5;
+  list-style: none;
+  margin: 0;
+  padding: var(--s2);
+  border-radius: var(--r-card);
+  border: 1px solid var(--hairline);
+  background: var(--canvas);
+}
+.me-menu button {
+  width: 100%;
+  text-align: left;
+  padding: var(--s2) var(--s4);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.me-menu button:hover,
+.me-menu button:focus-visible {
+  background: var(--canvas-soft);
+}
+
+/* ---------- main ---------- */
+.main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas);
+}
+.main-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s6);
+}
+.conversation {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.conv-header {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.conv-title {
+  font-size: 20px;
+  line-height: 1.3;
+}
+.conv-banner {
+  padding: var(--s3) var(--s5) 0;
+}
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+/* bubbles: sent = ink fill, received = canvas-soft fill */
+.bubble-row {
+  display: flex;
+}
+.bubble-row.mine {
+  justify-content: flex-end;
+}
+.bubble {
+  max-width: min(640px, 75%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s3) var(--s4);
+  border-radius: 20px;
+  background: var(--canvas-soft);
+  color: var(--ink);
+}
+.bubble.mine {
+  background: var(--ink);
+  color: var(--on-primary);
+}
+.bubble-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bubble-meta {
+  font-size: 12px;
+  line-height: 1.33;
+  color: var(--muted-strong);
+}
+.bubble.mine .bubble-meta,
+.bubble.mine .link-btn {
+  color: var(--faint); /* 7.9:1 on ink */
+}
+.bubble-quote {
+  margin: 0;
+  padding: var(--s1) var(--s3);
+  border-left: 3px solid currentColor;
+  font-size: 14px;
+  opacity: 0.85;
+  white-space: pre-wrap;
+}
+.bubble-actions {
+  display: flex;
+  gap: var(--s3);
+  height: 0;
+  overflow: hidden;
+}
+.bubble:hover .bubble-actions,
+.bubble:focus-within .bubble-actions {
+  height: auto;
+}
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: var(--w-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3) var(--s5) var(--s5);
+}
+.composer-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s1) var(--s4);
+  border-radius: var(--r-tile);
+  background: var(--canvas-soft);
+}
+.composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s2);
+}
+.composer-input {
+  flex: 1;
+  max-height: 160px;
+  min-height: 44px;
+  field-sizing: content;
+}
+
+.broadcasts {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s6) var(--s5);
+}
+.broadcasts ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}

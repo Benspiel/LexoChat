@@ -37,6 +37,8 @@ export interface UserRecord {
   totp_enabled?: boolean;
   locked?: boolean;
   has_keys?: boolean;
+  anonymized?: boolean;
+  prefs?: Record<string, unknown> | null;
   avatar?: string;
   key_version?: number;
   created?: string;
@@ -92,11 +94,21 @@ export interface ClientOptions {
 export class LexiChatClient {
   auth: AuthState | null = null;
 
-  constructor(private readonly opts: ClientOptions = {}) {}
+  constructor(private opts: ClientOptions = {}) {}
+
+  get baseUrl(): string {
+    return this.opts.baseUrl ?? "";
+  }
+
+  /** Device label sent at login (shown in the session list). */
+  setDevice(device: string): void {
+    this.opts.device = device;
+  }
 
   async request<T>(method: string, path: string, body?: unknown, extraHeaders: Record<string, string> = {}): Promise<T> {
     const headers: Record<string, string> = { Accept: "application/json", ...extraHeaders };
-    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const isForm = typeof FormData !== "undefined" && body instanceof FormData;
+    if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
     if (this.auth) {
       headers["Authorization"] = this.auth.token;
       headers[HEADER_SESSION] = this.auth.sessionId;
@@ -108,7 +120,7 @@ export class LexiChatClient {
       res = await fetch((this.opts.baseUrl ?? "") + path, {
         method,
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
         credentials: "omit",
         cache: "no-store",
         redirect: "error",
@@ -167,6 +179,12 @@ export class LexiChatClient {
     }
   }
 
+  /** Short lived token for protected files (avatars). */
+  async fileToken(): Promise<string> {
+    const res = await this.request<{ token: string }>("POST", "/api/files/token");
+    return res.token;
+  }
+
   list<T>(collection: string, query: { page?: number; perPage?: number; sort?: string; filter?: string } = {}): Promise<ListResult<T>> {
     const q = new URLSearchParams();
     q.set("page", String(query.page ?? 1));
@@ -188,4 +206,56 @@ export class LexiChatClient {
 /** Escapes a value for use inside a PocketBase filter string literal. */
 export function filterString(value: string): string {
   return '"' + value.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+}
+
+// ---------------------------------------------------------------------------
+// Realtime (PocketBase SSE): GET /api/realtime + POST subscriptions with auth
+// ---------------------------------------------------------------------------
+
+export type RealtimeHandler = (topic: string, data: unknown) => void;
+export type RealtimeStatus = "connecting" | "online" | "offline";
+
+export class RealtimeConnection {
+  private es: EventSource | null = null;
+  private clientId = "";
+  private closed = false;
+
+  constructor(
+    private readonly client: LexiChatClient,
+    private readonly topics: string[],
+    private readonly onEvent: RealtimeHandler,
+    private readonly onStatus: (s: RealtimeStatus) => void,
+  ) {}
+
+  connect(): void {
+    this.closed = false;
+    this.onStatus("connecting");
+    const es = new EventSource(this.client.baseUrl + "/api/realtime");
+    this.es = es;
+    es.addEventListener("PB_CONNECT", (ev) => {
+      this.clientId = (JSON.parse((ev as MessageEvent<string>).data) as { clientId: string }).clientId;
+      this.client
+        .request("POST", "/api/realtime", { clientId: this.clientId, subscriptions: this.topics })
+        .then(() => this.onStatus("online"))
+        .catch(() => this.onStatus("offline"));
+    });
+    for (const topic of this.topics) {
+      es.addEventListener(topic, (ev) => {
+        try {
+          this.onEvent(topic, JSON.parse((ev as MessageEvent<string>).data));
+        } catch {
+          // ignore malformed events
+        }
+      });
+    }
+    es.onerror = () => {
+      if (!this.closed) this.onStatus("offline"); // EventSource reconnects automatically
+    };
+  }
+
+  close(): void {
+    this.closed = true;
+    this.es?.close();
+    this.es = null;
+  }
 }

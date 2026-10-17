@@ -13,6 +13,8 @@ interface SettingsRecord {
   session_max_days: number;
   desktop_lock_minutes: number;
   audit_retention_days: number;
+  anonymize_deactivated_days: number;
+  broadcasts_per_hour: number;
   updated: string;
 }
 
@@ -28,6 +30,14 @@ const NUMBER_FIELDS: { key: keyof SettingsRecord; label: string; min: number; ma
   { key: "session_max_days", label: "Maximale Sitzungsdauer (Tage)", min: 1, max: 90, hint: "Danach ist eine neue Anmeldung nötig." },
   { key: "desktop_lock_minutes", label: "Sperre der Windows-App nach (Minuten)", min: 1, max: 240, hint: "Entsperren mit Passwort." },
   { key: "audit_retention_days", label: "Aufbewahrung des Audit-Logs (Tage)", min: 30, max: 3650, hint: "Mindestens 30 Tage." },
+  {
+    key: "anonymize_deactivated_days",
+    label: "Deaktivierte Konten anonymisieren nach (Tagen)",
+    min: 0,
+    max: 3650,
+    hint: "0 = nie. Löschkonzept: Konten ausgeschiedener Mitarbeitender werden danach automatisch anonymisiert.",
+  },
+  { key: "broadcasts_per_hour", label: "Broadcasts pro Person und Stunde", min: 1, max: 100, hint: "Schutz vor versehentlichem Massenversand." },
 ];
 
 export function SettingsView() {

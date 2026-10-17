@@ -156,6 +156,30 @@ test("audit log, settings and account pages", async ({ page }) => {
   expect(problems).toEqual([]);
 });
 
+test("data export (Art. 15) and anonymisation (Art. 17)", async ({ page }) => {
+  await loginAdmin(page);
+  await page.getByRole("button", { name: "Neues Konto" }).click();
+  const dialog = page.getByRole("dialog", { name: "Neues Konto." });
+  await dialog.getByLabel("Anzeigename").fill("Max Ausgeschieden");
+  await dialog.getByLabel("Benutzername").fill("max.alt");
+  await dialog.getByRole("button", { name: "Konto anlegen" }).click();
+  await page.getByRole("button", { name: "Ich habe das Einmalpasswort übergeben" }).click();
+
+  const row = page.getByRole("row", { name: /Max Ausgeschieden/ });
+  await row.getByRole("button", { name: "Max Ausgeschieden verwalten" }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Datenauskunft (Art. 15)" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("lexichat-datenauskunft-max.alt.json");
+
+  await row.getByRole("button", { name: "Max Ausgeschieden verwalten" }).click();
+  await page.getByRole("button", { name: "Anonymisieren" }).click();
+  await page.getByRole("dialog", { name: "Konto anonymisieren?" }).getByRole("button", { name: "Anonymisieren" }).click();
+  await expect(page.getByText("Das Konto max.alt wurde anonymisiert.")).toBeVisible();
+  await expect(page.getByRole("row", { name: /Ehemaliges Konto/ })).toContainText("Anonymisiert");
+  await expect(page.getByRole("row", { name: /Max Ausgeschieden/ })).toHaveCount(0);
+});
+
 test("security headers of the app", async ({ request }) => {
   const res = await request.get("/");
   expect(res.headers()["content-security-policy"]).toContain("script-src 'self' 'wasm-unsafe-eval'");
