@@ -36,6 +36,9 @@ const (
 	AuditTotpDisabled       = "auth.totp_disabled"
 	AuditUserTotpReset      = "admin.user_totp_reset"
 	AuditUserUnlocked       = "admin.user_unlocked"
+	AuditUserAnonymized     = "admin.user_anonymized"
+	AuditDataExported       = "privacy.data_exported"
+	AuditBroadcastSent      = "chat.broadcast_sent"
 	AuditBootstrapAdmin     = "system.bootstrap_admin"
 	AuditRetentionCompleted = "system.retention_cleanup"
 )

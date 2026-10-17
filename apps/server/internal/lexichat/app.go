@@ -16,8 +16,9 @@ const (
 
 // Server bundles the LexiChat specific state.
 type Server struct {
-	cfg   Config
-	audit *auditor
+	cfg    Config
+	audit  *auditor
+	typing typingLimiter
 }
 
 // Register wires all LexiChat hooks, routes and jobs into the PocketBase app.

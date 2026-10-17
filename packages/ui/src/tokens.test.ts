@@ -12,6 +12,9 @@ const TEXT_PAIRS: [string, string, string][] = [
   ["muted-strong on field (placeholder)", colors.mutedStrong, colors.field],
   ["canvas on accent (badge)", colors.canvas, colors.accent],
   ["accent on canvas (link)", colors.accent, colors.canvas],
+  ["muted-strong on canvas-soft (table header, segmented)", colors.mutedStrong, colors.canvasSoft],
+  ["faint on ink (footer fine print)", colors.faint, colors.ink],
+  ["canvas on ink-soft (primary hover)", colors.canvas, colors.inkSoft],
 ];
 
 describe("design tokens", () => {

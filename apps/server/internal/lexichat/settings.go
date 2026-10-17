@@ -17,18 +17,23 @@ type GlobalSettings struct {
 	SessionMaxDays       int
 	DesktopLockMinutes   int
 	AuditRetentionDays   int
+	// 0 = never
+	AnonymizeDeactivatedDays int
+	BroadcastsPerHour        int
 }
 
 // defaultGlobalSettings are used if the settings record is unreadable (fail safe values).
 var defaultGlobalSettings = GlobalSettings{
-	MessageRetentionDays: 90,
-	BroadcastPermission:  "all",
-	Require2FAAdmins:     true,
-	Allow2FAUsers:        true,
-	SessionIdleMinutes:   480,
-	SessionMaxDays:       14,
-	DesktopLockMinutes:   10,
-	AuditRetentionDays:   365,
+	MessageRetentionDays:     90,
+	BroadcastPermission:      "all",
+	Require2FAAdmins:         true,
+	Allow2FAUsers:            true,
+	SessionIdleMinutes:       480,
+	SessionMaxDays:           14,
+	DesktopLockMinutes:       10,
+	AuditRetentionDays:       365,
+	AnonymizeDeactivatedDays: 180,
+	BroadcastsPerHour:        10,
 }
 
 func loadGlobalSettings(app core.App) GlobalSettings {
@@ -38,14 +43,16 @@ func loadGlobalSettings(app core.App) GlobalSettings {
 		return defaultGlobalSettings
 	}
 	return GlobalSettings{
-		MessageRetentionDays: r.GetInt("message_retention_days"),
-		BroadcastPermission:  r.GetString("broadcast_permission"),
-		Require2FAAdmins:     r.GetBool("require_2fa_admins"),
-		Allow2FAUsers:        r.GetBool("allow_2fa_users"),
-		SessionIdleMinutes:   r.GetInt("session_idle_minutes"),
-		SessionMaxDays:       r.GetInt("session_max_days"),
-		DesktopLockMinutes:   r.GetInt("desktop_lock_minutes"),
-		AuditRetentionDays:   r.GetInt("audit_retention_days"),
+		MessageRetentionDays:     r.GetInt("message_retention_days"),
+		BroadcastPermission:      r.GetString("broadcast_permission"),
+		Require2FAAdmins:         r.GetBool("require_2fa_admins"),
+		Allow2FAUsers:            r.GetBool("allow_2fa_users"),
+		SessionIdleMinutes:       r.GetInt("session_idle_minutes"),
+		SessionMaxDays:           r.GetInt("session_max_days"),
+		DesktopLockMinutes:       r.GetInt("desktop_lock_minutes"),
+		AuditRetentionDays:       r.GetInt("audit_retention_days"),
+		AnonymizeDeactivatedDays: r.GetInt("anonymize_deactivated_days"),
+		BroadcastsPerHour:        max(1, r.GetInt("broadcasts_per_hour")),
 	}
 }
 

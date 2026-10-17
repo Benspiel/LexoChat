@@ -4,6 +4,7 @@
  */
 export const colors = {
   ink: "#141414",
+  inkSoft: "#262626",
   canvas: "#ffffff",
   canvasSoft: "#f3f3f3",
   field: "#f0f0f0",

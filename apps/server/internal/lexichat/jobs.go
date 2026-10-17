@@ -16,6 +16,7 @@ type RetentionResult struct {
 	Broadcasts int
 	Sessions   int
 	AuditLogs  int64
+	Anonymized int
 }
 
 func (s *Server) registerJobs(app core.App) {
@@ -58,6 +59,11 @@ func (s *Server) RunRetention(app core.App) (RetentionResult, error) {
 		dbx.NewExp("[[last_seen]] < {:idle}", dbx.Params{"idle": idleCutoff}),
 	))
 	res.Sessions = n
+	if err != nil {
+		return res, err
+	}
+
+	res.Anonymized, err = s.anonymizeLongDeactivated(app, gs.AnonymizeDeactivatedDays)
 	if err != nil {
 		return res, err
 	}

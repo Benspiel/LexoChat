@@ -130,7 +130,7 @@ export function PasswordForm({ user, firstLogin, oldAuthKey, onDone, onCancel }:
 export function ChangePasswordView(props: Props) {
   return (
     <main className="auth-page">
-      <Card className="auth-card">
+      <Card soft className="auth-card lx-soft">
         <div className="lx-stack">
           <div className="lx-stack-sm">
             <h1>Neues Passwort festlegen.</h1>

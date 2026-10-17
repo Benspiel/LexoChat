@@ -19,6 +19,16 @@ func (s *Server) registerRoutes(se *core.ServeEvent) {
 	me.POST("/totp/setup", s.handleTotpSetup)
 	me.POST("/totp/enable", s.handleTotpEnable)
 	me.POST("/totp/disable", s.handleTotpDisable)
+	me.GET("/export", s.handleExportMe)
+
+	chat := g.Group("")
+	chat.Bind(apis.RequireAuth(ColUsers))
+	chat.GET("/directory", s.handleDirectory)
+	chat.POST("/typing", s.handleTyping)
+	chat.GET("/presence", s.handlePresence)
+	chat.GET("/broadcasts/recipients", s.handleBroadcastRecipients)
+	chat.POST("/broadcasts", s.handleBroadcastSend)
+	chat.GET("/broadcasts/{id}/status", s.handleBroadcastStatus)
 
 	admin := g.Group("/admin")
 	admin.Bind(apis.RequireAuth(ColUsers))
@@ -27,4 +37,6 @@ func (s *Server) registerRoutes(se *core.ServeEvent) {
 	admin.POST("/users/{id}/reset-password", s.handleAdminResetPassword)
 	admin.POST("/users/{id}/reset-2fa", s.handleAdminResetTotp)
 	admin.POST("/users/{id}/unlock", s.handleAdminUnlock)
+	admin.POST("/users/{id}/anonymize", s.handleAdminAnonymize)
+	admin.GET("/users/{id}/export", s.handleAdminExport)
 }

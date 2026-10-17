@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { AUDIT_REASONS, auditLabel, type ListResult } from "@lexichat/shared";
-import { Button, EmptyState, Notice, SelectField, Spinner } from "@lexichat/ui";
+import { Button, EmptyState, Notice, Segmented, Spinner } from "@lexichat/ui";
 import { client } from "../lib/client";
 import { errorText, formatDate } from "../lib/format";
 
@@ -15,8 +15,8 @@ interface AuditRecord {
 }
 
 const CATEGORIES = [
-  { value: "", label: "Alle Ereignisse" },
-  { value: "auth.", label: "Anmeldung & Sicherheit" },
+  { value: "", label: "Alle" },
+  { value: "auth.", label: "Anmeldung" },
   { value: "admin.", label: "Verwaltung" },
   { value: "system.", label: "System" },
 ];
@@ -71,12 +71,12 @@ export function AuditView() {
             Unveränderliches Protokoll der Verwaltungs- und Sicherheitsereignisse (ohne Chatinhalte, IP-Adressen nur pseudonymisiert).
           </p>
         </div>
-        <SelectField
+        <Segmented
           label="Kategorie"
           options={CATEGORIES}
           value={category}
-          onChange={(e) => {
-            setCategory(e.target.value);
+          onChange={(v) => {
+            setCategory(v);
             setPage(1);
           }}
         />

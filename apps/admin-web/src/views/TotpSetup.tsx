@@ -128,7 +128,7 @@ export function TotpSetupForm({ user, authKey, mandatory, onDone, onCancel }: Pr
 export function TotpSetupView(props: Props) {
   return (
     <main className="auth-page">
-      <Card className="auth-card">
+      <Card soft className="auth-card lx-soft">
         <div className="lx-stack">
           <div className="lx-stack-sm">
             <h1>Zwei-Faktor-Anmeldung einrichten.</h1>

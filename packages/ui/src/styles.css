@@ -4,6 +4,8 @@
 
 :root {
   --ink: #141414;
+  --ink-soft: #262626;
+  --on-primary: #ffffff;
   --canvas: #ffffff;
   --canvas-soft: #f3f3f3;
   --field: #f0f0f0;
@@ -11,7 +13,7 @@
   --hairline-soft: #f0f0f0;
   --muted: #707070;
   --muted-strong: #696969; /* muted text on soft/field surfaces (AA) */
-  --faint: #adadad; /* decorative only, never for text */
+  --faint: #adadad; /* fine print on ink surfaces / decorative only, never body text on white */
   --accent: #0066ff; /* sparingly: unread badge, broadcast label */
 
   --s1: 4px;
@@ -21,16 +23,18 @@
   --s5: 24px;
   --s6: 32px;
   --s7: 48px;
+  --s-section: 80px;
 
   --r-pill: 9999px;
   --r-card: 24px;
   --r-tile: 16px;
 
-  --font: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --w-heading: 650;
-  --w-body: 450;
+  /* Saans is commercial -> Inter Variable (local) at the exact Saans axis positions */
+  --font: "Inter Variable", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --w-heading: 652;
+  --w-body: 456;
   --w-lead: 300;
-  --w-strong: 550;
+  --w-strong: 600; /* title, link, label */
 }
 
 *,
@@ -46,27 +50,35 @@ body {
   color: var(--ink);
   font-family: var(--font);
   font-weight: var(--w-body);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 16px; /* typography.body */
+  line-height: 1.38;
   -webkit-font-smoothing: antialiased;
 }
 
+/* app scale of the design hierarchy: h1 = heading-3, h2 = heading-4, h3 = title */
 h1,
 h2,
 h3 {
   font-weight: var(--w-heading);
-  line-height: 1.1;
   margin: 0;
 }
 h1 {
   font-size: 32px;
+  line-height: 1.13;
 }
 h2 {
   font-size: 24px;
+  line-height: 1.25;
 }
 h3 {
-  font-size: 18px;
-  line-height: 1.13;
+  font-size: 20px;
+  font-weight: var(--w-strong);
+  line-height: 1.3;
+}
+.lx-display {
+  font-size: 56px;
+  line-height: 1;
+  font-weight: var(--w-heading);
 }
 p {
   margin: 0;
@@ -74,7 +86,8 @@ p {
 
 .lx-lead {
   font-weight: var(--w-lead);
-  font-size: 18px;
+  font-size: 20px;
+  line-height: 1.38;
   color: var(--muted);
 }
 .lx-muted {
@@ -85,7 +98,12 @@ p {
   color: var(--muted-strong);
 }
 .lx-small {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.43;
+}
+.lx-caption {
+  font-size: 12px;
+  line-height: 1.33;
 }
 .lx-mono {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -149,13 +167,14 @@ a {
   align-items: center;
   justify-content: center;
   gap: var(--s2);
-  min-height: 40px;
-  padding: 0 var(--s5);
+  min-height: 44px;
+  padding: 0 var(--s4); /* button-primary: 0 spacing.md */
   border-radius: var(--r-pill);
   border: 1px solid transparent;
   font: inherit;
-  font-weight: var(--w-strong);
-  font-size: 14px;
+  font-weight: var(--w-strong); /* typography.link */
+  font-size: 16px;
+  line-height: 1.38;
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none;
@@ -165,16 +184,16 @@ a {
   opacity: 0.55;
 }
 .lx-btn--sm {
-  min-height: 32px;
-  padding: 0 var(--s4);
-  font-size: 13px;
+  min-height: 36px;
+  padding: 0 var(--s3);
+  font-size: 14px;
 }
 .lx-btn--primary {
   background: var(--ink);
   color: var(--canvas);
 }
 .lx-btn--primary:hover:not(:disabled) {
-  background: #2a2a2a;
+  background: var(--ink-soft);
 }
 .lx-btn--outline {
   background: var(--canvas);
@@ -211,16 +230,21 @@ a {
 .lx-label {
   font-weight: var(--w-strong);
   font-size: 14px;
+  line-height: 1.43;
 }
 .lx-hint {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.43;
   color: var(--muted);
+}
+.lx-soft .lx-hint {
+  color: var(--muted-strong);
 }
 .lx-input,
 .lx-select {
   width: 100%;
   min-height: 44px;
-  padding: 0 var(--s4);
+  padding: var(--s3) var(--s4); /* text-input: spacing.sm spacing.md */
   border: 0;
   border-radius: var(--r-tile);
   background: var(--field);
@@ -229,8 +253,14 @@ a {
   outline: 2px solid transparent;
   outline-offset: 0;
 }
+/* deviation: the design uses text-faint (#adadad, 2.2:1) for placeholders -> muted-strong for AA */
 .lx-input::placeholder {
   color: var(--muted-strong);
+}
+textarea.lx-input {
+  resize: none;
+  line-height: 1.38;
+  font: inherit;
 }
 .lx-input:focus,
 .lx-input:focus-visible,
@@ -246,7 +276,7 @@ a {
   display: flex;
   gap: var(--s2);
   align-items: flex-start;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: var(--w-strong);
 }
 .lx-error svg {
@@ -293,9 +323,10 @@ a {
 }
 
 /* ---------- cards, surfaces ---------- */
+/* resting card: white with 1px hairline-soft outline (pricing-card) */
 .lx-card {
   background: var(--canvas);
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--hairline-soft);
   border-radius: var(--r-card);
   padding: var(--s5);
 }
@@ -318,7 +349,8 @@ a {
   min-height: 24px;
   padding: 0 var(--s3);
   border-radius: var(--r-pill);
-  font-size: 12px;
+  font-size: 12px; /* typography.label */
+  line-height: 1.33;
   font-weight: var(--w-strong);
   white-space: nowrap;
 }
@@ -336,7 +368,15 @@ a {
 }
 .lx-badge--accent {
   background: var(--accent);
-  color: var(--canvas);
+  color: var(--on-primary);
+}
+.lx-badge--count {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0 6px;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--on-primary);
 }
 
 /* ---------- avatar ---------- */
@@ -383,35 +423,92 @@ a {
 }
 
 /* ---------- navigation pills ---------- */
-.lx-nav {
-  display: flex;
+/* segmented-control: canvas-soft stadium track, active option = white pill, inactive = muted */
+.lx-nav,
+.lx-segmented {
+  display: inline-flex;
   gap: var(--s1);
   flex-wrap: wrap;
+  padding: var(--s1);
+  border-radius: var(--r-pill);
+  background: var(--canvas-soft);
 }
-.lx-nav__item {
+.lx-nav__item,
+.lx-segmented__item {
   min-height: 36px;
   padding: 0 var(--s4);
   border-radius: var(--r-pill);
   border: 0;
   background: transparent;
-  color: var(--ink);
+  color: var(--muted-strong);
   font: inherit;
   font-weight: var(--w-strong);
   font-size: 14px;
   cursor: pointer;
 }
-.lx-nav__item:hover {
+.lx-nav__item:hover,
+.lx-segmented__item:hover {
+  color: var(--ink);
+}
+.lx-nav__item[aria-current="page"],
+.lx-segmented__item[aria-pressed="true"] {
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+/* nav-pill: floating, centered stadium bar in canvas-soft */
+.lx-navpill {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s2) var(--s2) var(--s5);
+  border-radius: var(--r-pill);
   background: var(--canvas-soft);
 }
-.lx-nav__item[aria-current="page"] {
+
+/* app icon / logomark: iOS style squircle (30%) */
+.lx-squircle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 30%;
   background: var(--ink);
-  color: var(--canvas);
+  color: var(--on-primary);
+  flex: none;
+}
+
+/* footer: ink band with rounded top corners (polarity inversion) */
+.lx-footer {
+  background: var(--ink);
+  color: var(--on-primary);
+  border-radius: var(--r-card) var(--r-card) 0 0;
+}
+.lx-footer .lx-muted {
+  color: var(--faint); /* 7.9:1 on ink */
+}
+
+/* toast: card shape, no shadow (hairline) */
+.lx-toast {
+  position: fixed;
+  right: var(--s5);
+  bottom: var(--s5);
+  z-index: 10;
+  max-width: 360px;
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-card);
+  border: 1px solid var(--hairline);
+  background: var(--canvas);
+  font-size: 14px;
+  line-height: 1.43;
 }
 
 /* ---------- table ---------- */
 .lx-table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--hairline-soft);
   border-radius: var(--r-card);
 }
 .lx-table {
@@ -419,23 +516,25 @@ a {
   border-collapse: collapse;
   font-size: 14px;
 }
+/* ex-data-table-cell: canvas-soft header with caption typography, body-sm cells, hairline rows */
 .lx-table th {
   text-align: left;
-  font-weight: var(--w-strong);
-  font-size: 13px;
-  color: var(--muted);
+  font-weight: var(--w-body);
+  font-size: 12px;
+  line-height: 1.33;
+  color: var(--muted-strong);
+  background: var(--canvas-soft);
   padding: var(--s3) var(--s4);
-  border-bottom: 1px solid var(--hairline);
   white-space: nowrap;
 }
 .lx-table td {
   padding: var(--s3) var(--s4);
-  border-bottom: 1px solid var(--hairline-soft);
+  border-top: 1px solid var(--hairline);
+  font-size: 14px;
+  line-height: 1.43;
   vertical-align: middle;
 }
-.lx-table tr:last-child td {
-  border-bottom: 0;
-}
+
 
 /* ---------- dialog ---------- */
 .lx-dialog {
@@ -454,7 +553,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: var(--s5);
-  padding: var(--s5);
+  padding: var(--s5); /* ex-modal-card: spacing.lg; no shadow (hairline) */
 }
 .lx-dialog__footer {
   display: flex;
@@ -470,7 +569,7 @@ a {
   align-items: center;
   text-align: center;
   gap: var(--s3);
-  padding: var(--s7) var(--s5);
+  padding: var(--s7); /* ex-empty-state-card: spacing.xxl */
   border-radius: var(--r-card);
   background: var(--canvas-soft);
 }
@@ -504,7 +603,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: var(--s1);
-  font-size: 13px;
+  font-size: 14px;
 }
 .lx-checklist li {
   display: flex;

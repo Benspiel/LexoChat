@@ -268,3 +268,56 @@ export function Dialog({ open, title, onClose, children, footer, persistent }: D
     </dialog>
   );
 }
+
+// ---------------------------------------------------------------- Segmented control
+
+export interface SegmentedProps<T extends string> {
+  label: string;
+  options: { value: T; label: string; count?: number }[];
+  value: T;
+  onChange: (value: T) => void;
+}
+
+/** segmented-control: canvas-soft track, active option as white pill (aria-pressed buttons). */
+export function Segmented<T extends string>({ label, options, value, onChange }: SegmentedProps<T>) {
+  return (
+    <div className="lx-segmented" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button key={o.value} type="button" className="lx-segmented__item" aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
+          {o.label}
+          {o.count ? <span className="lx-badge lx-badge--count" style={{ marginLeft: 6 }}>{o.count}</span> : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Toast
+
+export function Toast({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  useEffect(() => {
+    const id = window.setTimeout(onClose, 5000);
+    return () => window.clearTimeout(id);
+  }, [onClose]);
+  return (
+    <div className="lx-toast" role="status">
+      <Icon name="info" />
+      <div className="lx-grow">{children}</div>
+      <Button variant="ghost" size="sm" onClick={onClose} aria-label="Hinweis schließen">
+        <Icon name="x" />
+      </Button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Logomark
+
+export function Logomark({ size = 28 }: { size?: number }) {
+  return (
+    <span className="lx-squircle" style={{ width: size, height: size }} aria-hidden="true">
+      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M7 4v16h11" />
+      </svg>
+    </span>
+  );
+}

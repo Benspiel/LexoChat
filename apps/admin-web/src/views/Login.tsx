@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { deriveAuthKey } from "@lexichat/crypto";
 import { ApiError, type UserRecord } from "@lexichat/shared";
-import { Button, Card, Icon, Notice, TextField } from "@lexichat/ui";
+import { Button, Card, Logomark, Notice, TextField } from "@lexichat/ui";
 import { client } from "../lib/client";
 import { errorText } from "../lib/format";
 import { normalizeCode } from "../lib/totp";
@@ -63,11 +63,11 @@ export function LoginView({ notice, onSuccess }: { notice?: string; onSuccess: (
 
   return (
     <main className="auth-page">
-      <Card className="auth-card">
+      <Card soft className="auth-card lx-soft">
         <form className="lx-stack" onSubmit={submit} noValidate>
           <div className="lx-stack-sm">
             <span className="app-brand">
-              <Icon name="shield" size={20} /> LexiChat
+              <Logomark /> LexiChat
             </span>
             <h1>Verwaltung.</h1>
             <p className="lx-muted">Anmeldung nur für Administratorinnen und Administratoren.</p>

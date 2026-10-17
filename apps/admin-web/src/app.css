@@ -3,12 +3,13 @@
   display: flex;
   flex-direction: column;
 }
+/* floating, centered nav-pill (sticky) */
 .app-header {
   position: sticky;
   top: 0;
   z-index: 1;
+  padding-top: var(--s4);
   background: var(--canvas);
-  border-bottom: 1px solid var(--hairline);
 }
 .app-header__inner,
 .app-main,
@@ -21,9 +22,10 @@
 }
 .app-header__inner {
   display: flex;
-  align-items: center;
-  gap: var(--s5);
-  min-height: 64px;
+  justify-content: center;
+}
+.app-header .lx-navpill {
+  width: 100%;
   flex-wrap: wrap;
 }
 .app-brand {
@@ -38,13 +40,13 @@
   padding-bottom: var(--s7);
 }
 .app-footer {
-  border-top: 1px solid var(--hairline);
+  margin-top: var(--s-section);
 }
 .app-footer__inner {
-  padding-top: var(--s4);
-  padding-bottom: var(--s4);
-  font-size: 13px;
-  color: var(--muted);
+  padding-top: var(--s6);
+  padding-bottom: var(--s6);
+  font-size: 14px;
+  line-height: 1.43;
 }
 .auth-page {
   min-height: 100vh;
@@ -52,7 +54,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--s5);
-  background: var(--canvas-soft);
+  background: var(--canvas);
 }
 .auth-card {
   width: min(440px, 100%);
@@ -61,7 +63,7 @@
   margin-bottom: var(--s5);
 }
 .otp-box {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: var(--w-heading);
   padding: var(--s4);
   border-radius: var(--r-tile);

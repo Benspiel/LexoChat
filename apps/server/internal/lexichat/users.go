@@ -8,18 +8,19 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 var (
 	errLastAdmin = errors.New("Es muss mindestens eine aktive Administratorin bzw. ein aktiver Administrator verbleiben.")
 
 	// fields a user may change on the own record via the record api
-	selfEditableFields = []string{"name", "avatar"}
+	selfEditableFields = []string{"name", "avatar", "prefs"}
 	// fields an admin may change on any record via the record api
 	adminEditableFields = []string{"name", "avatar", "username", "role", "active"}
 
 	// fields that are only shown to the owner, admins and superusers
-	privateUserFields = []string{"role", "must_change_password", "totp_enabled", "email", "emailVisibility", "verified", "created", "updated"}
+	privateUserFields = []string{"role", "must_change_password", "totp_enabled", "prefs", "deactivated_at", "email", "emailVisibility", "verified", "created", "updated"}
 )
 
 func isActiveAdmin(r *core.Record) bool {
@@ -81,6 +82,13 @@ func (s *Server) registerUserHooks(app core.App) {
 		if deactivated {
 			// invalidates all issued tokens (and the realtime auth state)
 			e.Record.RefreshTokenKey()
+			e.Record.Set("deactivated_at", types.NowDateTime())
+		}
+		if !orig.GetBool("active") && e.Record.GetBool("active") {
+			if orig.GetBool("anonymized") {
+				return errors.New("anonymised accounts cannot be reactivated")
+			}
+			e.Record.Set("deactivated_at", "")
 		}
 
 		if err := e.Next(); err != nil {
@@ -138,6 +146,16 @@ func (s *Server) registerUserHooks(app core.App) {
 		if isSelf && (e.Record.GetString("role") != orig.GetString("role") || e.Record.GetBool("active") != orig.GetBool("active")) {
 			return e.ForbiddenError("Sie können Ihre eigene Rolle und Ihren eigenen Status nicht ändern.", nil)
 		}
+		if orig.GetBool("anonymized") {
+			return e.BadRequestError("Anonymisierte Konten können nicht mehr bearbeitet werden.", nil)
+		}
+		if info, _ := e.RequestInfo(); info != nil {
+			if raw, ok := info.Body["prefs"]; ok {
+				if !isSelf || !validPrefs(raw) {
+					return e.BadRequestError("Ungültige Einstellungen.", nil)
+				}
+			}
+		}
 
 		if err := e.Next(); err != nil {
 			return err
@@ -170,6 +188,10 @@ func (s *Server) registerUserHooks(app core.App) {
 		info := e.RequestInfo
 		if info == nil || info.Auth == nil {
 			e.Record.Hide(privateUserFields...)
+			return e.Next()
+		}
+		if e.Record.GetBool("anonymized") && !info.Auth.IsSuperuser() && !isActiveAdmin(info.Auth) {
+			hideForAnonymized(e.Record)
 			return e.Next()
 		}
 		if info.Auth.IsSuperuser() || info.Auth.Id == e.Record.Id || isActiveAdmin(info.Auth) {
