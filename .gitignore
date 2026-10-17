@@ -1,0 +1,24 @@
+# secrets / runtime data
+.env
+deploy/.env
+deploy/admin-web-dist/
+pb_data/
+*.db
+*.db-shm
+*.db-wal
+*.age
+age-identity*.txt
+pre-restore-*
+
+# build output
+node_modules/
+dist/
+target/
+apps/server/lexichat
+*.exe
+*.msi
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/

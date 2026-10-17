@@ -1,0 +1,12 @@
+{
+  "name": "lexichat",
+  "private": true,
+  "description": "LexiChat – interner, Ende-zu-Ende-verschlüsselter Messenger für Arztpraxen",
+  "packageManager": "pnpm@10.18.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test:server": "cd apps/server && go test ./..."
+  }
+}

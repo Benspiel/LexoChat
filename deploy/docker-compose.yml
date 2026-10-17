@@ -1,0 +1,91 @@
+# LexiChat production stack: PocketBase (LexiChat build) + Caddy (TLS 1.3, rate limits)
+#
+#   cp .env.example .env   # fill in values, chmod 600 .env
+#   docker compose up -d --build
+#   ./scripts/create-first-admin.sh
+#
+# The PocketBase dashboard (/_/) is only reachable via SSH tunnel:
+#   ssh -L 8090:127.0.0.1:8090 user@server   ->  http://localhost:8090/_/
+
+name: lexichat
+
+services:
+  server:
+    build:
+      context: ../apps/server
+    image: lexichat/server:local
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      LEXICHAT_TRUST_PROXY: "true"
+    volumes:
+      - pb_data:/pb_data
+    # only on the loopback interface (SSH tunnel for the superuser dashboard)
+    ports:
+      - "127.0.0.1:8090:8090"
+    networks:
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    user: "65532:65532"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 768m
+    cpus: 1.5
+    healthcheck:
+      test: ["CMD", "/app/lexichat", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    build:
+      context: ./caddy
+    image: lexichat/caddy:local
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      # built admin web app (apps/admin-web/dist), see docs/betriebshandbuch.md
+      - ./admin-web-dist:/srv/admin-web:ro
+    networks:
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  backend:
+
+volumes:
+  pb_data:
+  caddy_data:
+  caddy_config:

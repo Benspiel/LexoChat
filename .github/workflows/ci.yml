@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: Server (Go) – Tests, Vet, Vulncheck
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Verify modules
+        run: go mod verify
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - name: go vet
+        run: go vet ./...
+      - name: Tests (incl. API rule tests)
+        run: go test -race -count=1 ./...
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  caddy:
+    name: Caddyfile validieren
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.2"
+          cache: false
+      - name: Build caddy with rate_limit module
+        run: |
+          go install github.com/caddyserver/xcaddy/cmd/xcaddy@v0.4.7
+          xcaddy build v2.11.7 --with github.com/mholt/caddy-ratelimit@v0.1.0 --output ./caddy-bin
+      - name: Validate
+        env:
+          LEXICHAT_DOMAIN: chat.example.org
+          LEXICHAT_ADMIN_DOMAIN: admin.chat.example.org
+          ACME_EMAIL: it@example.org
+        run: ./caddy-bin validate --config deploy/caddy/Caddyfile --adapter caddyfile
+
+  shell:
+    name: Shell-Skripte prüfen
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: shellcheck
+        run: shellcheck deploy/scripts/*.sh
+
+  secrets:
+    name: Keine Secrets im Repo
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: .env must not be committed
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$|pb_data/|\.db$|age-identity|\.key$'; then
+            echo "Sensible Dateien im Repository gefunden" && exit 1
+          fi
