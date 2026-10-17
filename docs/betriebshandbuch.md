@@ -1,6 +1,6 @@
 # LexiChat – Betriebshandbuch
 
-> Stand: Phase 1 (Server). Abschnitte zur Windows-App und Admin-Web-App folgen in Phase 2/3.
+> Stand: Phase 2 (Server + Admin-Web-App). Abschnitte zur Windows-App folgen in Phase 3.
 
 ## 1. Voraussetzungen
 
@@ -38,12 +38,18 @@ git clone <repo> /opt/lexichat && cd /opt/lexichat/deploy
 cp .env.example .env && chmod 600 .env
 openssl rand -base64 48            # -> LEXICHAT_SERVER_SECRET in .env
 $EDITOR .env                       # Domains, E-Mail, Origins
-mkdir -p admin-web-dist            # Phase 2: gebaute Admin-Web-App hierher kopieren
+# Admin-Web-App bauen (auf einem Build-Rechner mit Node 22 + pnpm, oder direkt auf dem Server):
+(cd .. && corepack enable && pnpm install --frozen-lockfile && pnpm build:admin)
+rm -rf admin-web-dist && cp -r ../apps/admin-web/dist admin-web-dist
 docker compose up -d --build
 docker compose ps                  # beide Dienste "healthy"/"running"
 ./scripts/create-first-admin.sh praxisadmin "Praxis-Administration"
 ```
-Das Einmalpasswort erscheint **nur einmal** im Terminal. Bei der ersten Anmeldung muss es geändert werden; dabei werden die Schlüssel erzeugt.
+Das Einmalpasswort erscheint **nur einmal** im Terminal. Erste Anmeldung unter `https://<LEXICHAT_ADMIN_DOMAIN>`:
+1. Mit Einmalpasswort anmelden → persönliches Passwort festlegen → erneut anmelden.
+2. Zwei-Faktor-Anmeldung einrichten (Authenticator-App auf dem Diensthandy, Pflicht für Admins).
+3. Zweites Admin-Konto anlegen (Vertretung, Notfall).
+Die Chat-Schlüssel des Admin-Kontos werden erst bei der ersten Anmeldung in der Windows-App erzeugt.
 
 Optional (Notfallzugang): PocketBase-Superuser anlegen, Passwort im Tresor hinterlegen:
 ```bash
@@ -76,10 +82,20 @@ Das Skript prüft die Prüfsumme, sichert den aktuellen Stand verschlüsselt, sp
 
 **Restore-Test:** mindestens halbjährlich auf einem separaten System durchführen und protokollieren (Datum, Backup-Datei, Ergebnis, Person). Status: in der Entwicklungsumgebung wurde der Inhalt eines Backups erfolgreich entpackt und die Audit-Kette geprüft; ein vollständiger Restore-Test mit Docker steht noch aus (Phase 6).
 
+## 5a. Admin-Web-App aktualisieren
+
+```bash
+cd /opt/lexichat && git pull && pnpm install --frozen-lockfile && pnpm build:admin
+rm -rf deploy/admin-web-dist && cp -r apps/admin-web/dist deploy/admin-web-dist
+```
+Caddy liefert die neuen Dateien sofort aus (`index.html` wird nicht gecacht).
+
 ## 6. Notfälle
 
 | Situation | Vorgehen |
 |---|---|
+| Admin hat Authenticator-Gerät verloren | Zweiter Admin: Benutzer → Verwalten → „2FA zurücksetzen“. Danach bei der nächsten Anmeldung neu einrichten. |
+| `LEXICHAT_SERVER_SECRET` musste geändert werden | Alle 2FA-Einrichtungen werden ungültig (verschlüsselte Secrets). Per Superuser-Dashboard bei allen Admins `totp_enabled` auf false setzen, danach neu einrichten lassen. |
 | Person hat Passwort vergessen | Admin: „Passwort zurücksetzen“ → Einmalpasswort persönlich übergeben. Mit Wiederherstellungsschlüssel bleiben alte Nachrichten lesbar, sonst nicht. |
 | Gerät verloren/gestohlen | Admin: Sitzungen der Person beenden (oder Konto deaktivieren). Wirkt sofort. |
 | Admin ausgesperrt, anderer Admin vorhanden | Zweiter Admin setzt das Passwort zurück. |

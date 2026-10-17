@@ -146,6 +146,10 @@ func (s *Server) registerAuthHooks(app core.App) {
 			}
 		}
 
+		if err := s.checkLoginTotp(e); err != nil {
+			return err
+		}
+
 		sess, err := s.createSession(e.App, e.Record, client, e.Request.Header.Get(HeaderDevice), ip)
 		if err != nil {
 			return e.InternalServerError("", err)
@@ -154,6 +158,7 @@ func (s *Server) registerAuthHooks(app core.App) {
 		e.Meta = map[string]any{
 			"sessionId":          sess.Id,
 			"mustChangePassword": e.Record.GetBool("must_change_password"),
+			"totpSetupRequired":  requires2FASetup(e.App, e.Record),
 		}
 
 		if err := e.Next(); err != nil {

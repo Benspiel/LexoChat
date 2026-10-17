@@ -32,6 +32,10 @@ const (
 	AuditUserDeleted        = "admin.user_deleted"
 	AuditUserPasswordReset  = "admin.user_password_reset"
 	AuditSettingsChanged    = "admin.settings_changed"
+	AuditTotpEnabled        = "auth.totp_enabled"
+	AuditTotpDisabled       = "auth.totp_disabled"
+	AuditUserTotpReset      = "admin.user_totp_reset"
+	AuditUserUnlocked       = "admin.user_unlocked"
 	AuditBootstrapAdmin     = "system.bootstrap_admin"
 	AuditRetentionCompleted = "system.retention_cleanup"
 )

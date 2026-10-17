@@ -1,6 +1,6 @@
 # LexiChat – Rechtekonzept (API-Rules)
 
-> Stand: Phase 1. Quelle der Wahrheit ist die Migration `apps/server/migrations/1760700000_lexichat_init.go`; die Tests stehen in `apps/server/internal/lexichat/rules_test.go`.
+> Stand: Phase 2. Quelle der Wahrheit ist die Migration `apps/server/migrations/1760700000_lexichat_init.go`; die Tests stehen in `apps/server/internal/lexichat/rules_test.go`.
 
 ## Grundsätze
 
@@ -18,7 +18,9 @@ ACTIVE = @request.auth.collectionName = "users"
 ADMIN  = ACTIVE && @request.auth.role = "admin"
 ```
 
-Zusätzlich (nicht als Rule ausdrückbar, per Middleware): jede authentifizierte Anfrage braucht eine gültige, eigene Sitzung (`X-LexiChat-Session`), sonst `401`.
+Zusätzlich (nicht als Rule ausdrückbar, per Middleware):
+- jede authentifizierte Anfrage braucht eine gültige, eigene Sitzung (`X-LexiChat-Session`), sonst `401`;
+- **eingeschränkte Konten** dürfen nur `/api/lexichat/me/*`, Token-Refresh, den eigenen Datensatz und das Beenden eigener Sitzungen nutzen, sonst `403`: Konten mit Einmalpasswort (`must_change_password`) und Admins ohne Pflicht-2FA (`require_2fa_admins` und `totp_enabled = false`).
 
 ## Rollen
 
@@ -34,7 +36,7 @@ Zusätzlich (nicht als Rule ausdrückbar, per Middleware): jede authentifizierte
 
 | Aktion | Regel | Zusätzliche Prüfungen (Hooks) |
 |---|---|---|
-| list | `ACTIVE && (active = true \|\| id = @request.auth.id \|\| @request.auth.role = "admin")` | Nicht-Admins sehen bei Fremden **nicht**: `role`, `must_change_password`, `email`, `created`, `updated`. Hidden-Felder (Schlüsselmaterial, KDF, Sperrzähler) sind für niemanden außer Superuser sichtbar **und nicht filterbar** (getestet). |
+| list | `ACTIVE && (active = true \|\| id = @request.auth.id \|\| @request.auth.role = "admin")` | Nicht-Admins sehen bei Fremden **nicht**: `role`, `must_change_password`, `totp_enabled`, `email`, `created`, `updated`. Admins/Eigentümer erhalten zusätzlich die abgeleiteten, schreibgeschützten Werte `locked` und `has_keys`. Hidden-Felder (Schlüsselmaterial, KDF, Sperrzähler) sind für niemanden außer Superuser sichtbar **und nicht filterbar** (getestet). |
 | view | `@request.auth.collectionName = "users" && (id = @request.auth.id \|\| (ACTIVE && (active = true \|\| @request.auth.role = "admin")))` | wie oben; eigener Datensatz auch bei `must_change_password` |
 | create | `null` | Konten nur über `POST /api/lexichat/admin/users` (ADMIN) oder CLI `bootstrap-admin` |
 | update | `(id = @request.auth.id && ACTIVE && @request.body.role:isset = false && @request.body.active:isset = false && @request.body.username:isset = false && @request.body.must_change_password:isset = false) \|\| (ADMIN)` | Feld-Allow-List: selbst `name`, `avatar`; Admin `name`, `avatar`, `username`, `role`, `active`. Passwort, E-Mail, Schlüssel, KDF nie über die Record-API. Keine Selbst-Herabstufung/-Deaktivierung. Deaktivierung ⇒ `tokenKey` neu + alle Sitzungen gelöscht. |
@@ -106,9 +108,13 @@ Zusätzlich (nicht als Rule ausdrückbar, per Middleware): jede authentifizierte
 | `GET /api/lexichat/prelogin?username=` | öffentlich (rate-limitiert) | Salt + KDF-Parameter; Schein-Salt für unbekannte Namen |
 | `GET /api/lexichat/me/keys` | angemeldet (auch bei Passwortwechsel-Pflicht) | eigene öffentliche + verpackte private Schlüssel |
 | `POST /api/lexichat/me/keys/recovery` | ACTIVE | Wiederherstellungs-Blob setzen |
-| `POST /api/lexichat/me/password` | angemeldet | atomarer Passwort- und Schlüsselwechsel; altes Passwort nötig (Fehlversuche zählen zur Sperre) |
-| `POST /api/lexichat/admin/users` | ADMIN | Konto anlegen, Einmalpasswort einmalig zurückgeben |
-| `POST /api/lexichat/admin/users/{id}/reset-password` | ADMIN | Einmalpasswort, Sitzungen beenden, Sperre aufheben (nicht für sich selbst) |
+| `POST /api/lexichat/me/password` | angemeldet | atomarer Passwort- und Schlüsselwechsel; altes Passwort nötig (Fehlversuche zählen zur Sperre); existieren verpackte Schlüssel, müssen sie neu verpackt mitgesendet werden |
+| `POST /api/lexichat/me/keys` | ACTIVE | Schlüssel einrichten/wiederherstellen, nur solange keine verpackten Schlüssel existieren; Passwortbestätigung |
+| `POST /api/lexichat/me/totp/setup` · `/enable` · `/disable` | angemeldet (Setup/Disable mit Passwort, Disable zusätzlich mit Code; Admins mit Pflicht-2FA können nicht deaktivieren) | TOTP verwalten |
+| `POST /api/lexichat/admin/users` | ADMIN + 2FA | Konto anlegen, Einmalpasswort einmalig zurückgeben |
+| `POST /api/lexichat/admin/users/{id}/reset-password` | ADMIN + 2FA | Einmalpasswort, Sitzungen beenden, Sperre aufheben (nicht für sich selbst) |
+| `POST /api/lexichat/admin/users/{id}/reset-2fa` | ADMIN + 2FA | TOTP entfernen, Sitzungen beenden (nicht für sich selbst) |
+| `POST /api/lexichat/admin/users/{id}/unlock` | ADMIN + 2FA | Kontosperre nach Fehlversuchen aufheben |
 
 ## Automatisierte Negativtests (Auszug, alle grün)
 
@@ -119,3 +125,4 @@ Zusätzlich (nicht als Rule ausdrückbar, per Middleware): jede authentifizierte
 - Audit-Log: für Nutzer unsichtbar, für alle unveränderbar, Manipulation in der DB wird von `verify-audit` erkannt.
 - Deaktivierung, Admin-Reset und Abmelden machen Token/Sitzung sofort ungültig; Realtime-Verbindungen werden getrennt.
 - Letzter Admin kann nicht herabgestuft oder gelöscht werden (auch nicht auf Modellebene).
+- Admins ohne 2FA kommen an keine Verwaltungsfunktion; TOTP-Codes sind nur einmal gültig; falsche Codes zählen zur Sperre; TOTP-Felder sind weder sicht- noch setzbar.

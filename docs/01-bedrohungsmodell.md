@@ -1,6 +1,6 @@
 # LexiChat – Bedrohungsmodell (STRIDE)
 
-> Stand: Phase 1. Status: ✅ umgesetzt · 🟡 geplant (Phase) · ⚠️ Restrisiko / organisatorisch
+> Stand: Phase 2. Status: ✅ umgesetzt · 🟡 geplant (Phase) · ⚠️ Restrisiko / organisatorisch
 
 ## 1. Schutzgüter
 
@@ -30,7 +30,7 @@
 | S | Nutzer meldet sich in der Admin-Web-App an | serverseitige Origin-Prüfung + Rollenprüfung aller Admin-Endpunkte | ✅ |
 | S | Gefälschter Absender einer Nachricht | API-Rule `sender = auth.id` + Ed25519-Signatur, die der Empfänger prüft | ✅ Server / 🟡 Client (P3) |
 | S | Phishing-Server / falsche URL | Server-URL in der Windows-App fest konfiguriert, TLS 1.3, Zertifikat-Pinning prüfen | 🟡 P3 |
-| S | Admin-Konto ohne zweiten Faktor | TOTP-Pflicht für Admins | 🟡 P2 |
+| S | Admin-Konto ohne zweiten Faktor | TOTP-Pflicht für Admins, Replay-Schutz, Secret verschlüsselt (⚠️ TOTP ist nicht phishing-resistent; WebAuthn als Ausbau) | ✅ |
 | **T**ampering | Manipulation von Rollen/Status durch Nutzer | Rules + Feld-Allow-List + Tests | ✅ |
 | T | Manipulation von Nachrichten auf dem Server | AEAD (Poly1305) + Signatur; Server kann nur löschen, nicht unbemerkt ändern | 🟡 P3 (Client-Prüfung) |
 | T | Austausch öffentlicher Schlüssel (MITM) durch Admin/Server | Admins können Schlüssel nicht setzen; Sicherheitsnummer + Warnung bei Schlüsselwechsel | ✅ Server / 🟡 P3 |
@@ -38,12 +38,13 @@
 | T | Manipulierte Updates der Windows-App | Code-Signing + signierte Updates (Tauri Updater, eigener Schlüssel) | 🟡 P6 |
 | **R**epudiation | Admin bestreitet Verwaltungsaktion | Audit-Log mit Akteur, Zeit, Ziel, Hash-Kette | ✅ |
 | **I**nformation Disclosure | Server/DB/Backup kompromittiert | E2EE; Server kennt weder Passwort noch `kek`; Backups mit `age` verschlüsselt; Volume-Verschlüsselung (LUKS) | ✅ / ⚠️ LUKS ist Betreiberaufgabe |
-| I | Offline-Brute-Force der verpackten Schlüssel (nach DB-Diebstahl) | Argon2id 64 MiB/3 Iterationen pro Versuch; Passwort-Policy ≥ 12 Zeichen | ✅ / 🟡 Policy P2 |
+| I | Offline-Brute-Force der verpackten Schlüssel (nach DB-Diebstahl) | Argon2id 64 MiB/3 Iterationen pro Versuch; Passwort-Policy ≥ 12 Zeichen + Liste verbreiteter Passwörter (clientseitig) | ✅ |
 | I | Kolleg:in liest verpackte Schlüssel anderer | Felder `hidden` (nicht lesbar, nicht filterbar) | ✅ |
 | I | Enumeration von Benutzernamen | Schein-Salt im Prelogin, identische Fehlermeldungen | ✅ (⚠️ Antwortzeit-Unterschiede nicht vollständig ausgeschlossen) |
 | I | Inhalte in Logs | keine Inhalte serverseitig vorhanden; Request-Logs ohne IP/Nutzer-ID; Audit ohne Inhalte, ohne Passwörter, ohne Benutzername bei unbekannten Logins (getestet) | ✅ |
 | I | Benachrichtigungen auf Sperrbildschirm | Toasts ohne Inhalt/Absender (Standard) | 🟡 P3 |
-| I | XSS in Admin-Web/Desktop | React-Escaping, kein HTML/Markdown-Rendering, strikte CSP ohne Inline-Skripte, SVG-Avatare verboten | ✅ CSP/SVG / 🟡 UI |
+| I | XSS in Admin-Web/Desktop | React-Escaping, kein `dangerouslySetInnerHTML`, kein HTML/Markdown-Rendering, strikte CSP ohne Inline-Skripte (E2E-Tests laufen mit Produktions-CSP), SVG-Avatare verboten, Token nur im Arbeitsspeicher | ✅ Admin-Web / 🟡 Desktop P3 |
+| I | Manipulierte Admin-Web-App (kompromittierter Server liefert Schadcode) | Web-App verarbeitet nie private Schlüssel (Architektur 2.7); Admin-Domain optional nur aus dem Praxisnetz | ✅ / ⚠️ Admin-Passwort + TOTP-Code könnten abgegriffen werden |
 | I | Metadaten | Server sieht Kommunikationsbeziehungen – technisch nicht vermeidbar; minimiert (kein `last_login`, IP nur gehasht) | ⚠️ |
 | **D**enial of Service | Request-Flut | Rate-Limits, Body-Limit 2 MB, Ressourcenlimits der Container | ✅ |
 | D | Gezielte Kontosperre durch Fehlversuche | max. 60 min Sperre, Admin-Reset hebt Sperre auf, Audit | ⚠️ akzeptiert |

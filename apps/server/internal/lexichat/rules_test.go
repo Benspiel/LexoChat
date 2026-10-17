@@ -464,11 +464,6 @@ func TestOneTimePasswordFlow(t *testing.T) {
 		"wrappedPrivateKeys": map[string]any{"v": 1, "alg": "xchacha20poly1305", "nonce": randomB64(24), "ct": randomB64(96)},
 	}
 
-	// keys are mandatory for a fresh account
-	if res := u.do("POST", "/api/lexichat/me/password", body); res.Status != 400 {
-		t.Fatalf("missing keys must fail: %d %s", res.Status, res.Raw)
-	}
-
 	body["publicEncKey"] = randomB64(32)
 	body["publicSignKey"] = randomB64(32)
 

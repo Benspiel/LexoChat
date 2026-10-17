@@ -22,3 +22,5 @@ apps/server/lexichat
 .DS_Store
 .idea/
 .vscode/
+apps/admin-web/test-results/
+playwright-report/

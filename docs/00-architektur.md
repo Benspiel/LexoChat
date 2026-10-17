@@ -1,6 +1,6 @@
 # LexiChat – Architektur
 
-> Stand: Phase 1 (Fundament). Dieses Dokument wird mit jeder Phase fortgeschrieben.
+> Stand: Phase 2 (Admin-Web-App). Dieses Dokument wird mit jeder Phase fortgeschrieben.
 
 ## 0. Annahmen (bitte prüfen)
 
@@ -48,11 +48,11 @@ Diese Annahmen wurden getroffen, weil sie im Auftrag nicht festgelegt waren. Jed
 | Pfad | Inhalt | Phase |
 |---|---|---|
 | `apps/server` | PocketBase + LexiChat-Erweiterungen (Go) | 1 ✅ |
-| `apps/admin-web` | Admin-Web-App (React + Vite) | 2 |
+| `apps/admin-web` | Admin-Web-App (React + Vite) | 2 ✅ |
 | `apps/desktop` | Windows-App (Tauri v2 + React) | 3 |
-| `packages/ui` | Design-System (Tokens, Komponenten) | 2 |
-| `packages/crypto` | Client-Krypto (libsodium) | 3 |
-| `packages/shared` | Gemeinsame Typen, Konstanten, Fehlermeldungen | 2 |
+| `packages/ui` | Design-System (Tokens, Komponenten), siehe [03-design-system.md](03-design-system.md) | 2 ✅ |
+| `packages/crypto` | Client-Krypto (libsodium): KDF ✅, Schlüssel/Nachrichten in Phase 3 | 2/3 |
+| `packages/shared` | API-Client, Passwort-Policy, Audit-Texte | 2 ✅ |
 | `deploy` | Docker Compose, Caddy, Skripte | 1 ✅ |
 | `docs` | Architektur, Bedrohungsmodell, Rechtekonzept, Datenschutz | fortlaufend |
 
@@ -74,7 +74,7 @@ kek     = BLAKE2b-256(key=master, "lexichat:kek:v1")                  → verpac
 - Das Passwortfeld in PocketBase akzeptiert **nur** 64 Hex-Zeichen (`^[0-9a-f]{64}$`) – ein fehlerhafter Client, der das Klartext-Passwort sendet, wird abgewiesen (getestet).
 - Salt und Parameter liefert `GET /api/lexichat/prelogin?username=…`. Für unbekannte Benutzernamen wird ein **deterministischer Schein-Salt** (HMAC mit Server-Secret) geliefert → keine Benutzer-Enumeration über diesen Endpunkt.
 - Die Go-Implementierung (`apps/server/internal/lxkdf`) ist per Testvektor **byte-genau gegen libsodium** (`libsodium-wrappers-sumo`) geprüft. Zusätzlich wurde ein kompletter Ende-zu-Ende-Durchlauf (JS-Client ↔ Server: Prelogin, Login mit Einmalpasswort, Passwortwechsel mit Schlüsselerzeugung, Re-Login, Entschlüsseln des privaten Schlüssels) erfolgreich ausgeführt.
-- **Konsequenz:** Die Passwort-Policy (mind. 12 Zeichen, Liste häufiger Passwörter) kann nur **clientseitig** geprüft werden (Admin-Web-App und Windows-App, beide aus derselben `packages/shared`-Policy). Der Server kann die Policy nicht erzwingen, weil er das Passwort nicht kennt. Bewusster Zielkonflikt zugunsten der Vertraulichkeit.
+- **Konsequenz:** Die Passwort-Policy kann nur **clientseitig** geprüft werden. Der Server kann sie nicht erzwingen, weil er das Passwort nicht kennt (bewusster Zielkonflikt zugunsten der Vertraulichkeit). Umgesetzt in `packages/shared/src/passwordPolicy.ts` (NIST SP 800-63B): mind. 12 Zeichen, keine Zeichenklassen-Pflicht, Abgleich mit ~49 000 verbreiteten Passwörtern (`@zxcvbn-ts/language-common`, MIT) plus deutscher/praxisbezogener Liste, auch in Varianten („Passwort2026!“, „P4ssw0rd“); kein Name/Benutzername, keine trivialen Folgen. Admin-Web-App und Windows-App nutzen dieselbe Funktion.
 - bcrypt (PocketBase-Standard) ist hier ausreichend, weil `authKey` bereits ein hochentropischer, per Argon2id abgeleiteter Wert ist. Die eigentliche Härte gegen Wörterbuchangriffe liefert Argon2id.
 
 ### 2.2 Konten, Einmalpasswörter, Bootstrap
@@ -100,8 +100,19 @@ kek     = BLAKE2b-256(key=master, "lexichat:kek:v1")                  → verpac
 - Die Admin-Web-App läuft auf eigener Domain (same-origin mit der API). Logins mit `Origin` = Admin-Domain werden für Nicht-Admins **serverseitig** abgelehnt (`403`, Audit-Eintrag). Zusätzlich prüft die Web-App clientseitig.
 - Ehrliche Einordnung: Der `Origin`-Header kann von Nicht-Browser-Clients weggelassen werden. Das ist kein Sicherheitsproblem, weil alle Verwaltungsfunktionen ohnehin serverseitig an `role = admin` gebunden sind – die Sperre verhindert nur, dass Nutzer die Web-Oberfläche überhaupt verwenden.
 
-### 2.6 Zwei-Faktor-Authentisierung (Phase 2)
-Geprüft im Quellcode von PocketBase v0.40.5: PocketBase bietet MFA nur als Kombination zweier **eingebauter** Methoden (Passwort + E-Mail-OTP oder OAuth2). **TOTP (Authenticator-App) ist nicht nativ vorhanden.** E-Mail-OTP scheidet aus (kein SMTP, Annahme A6). Plan: TOTP (RFC 6238) als eigener Go-Hook im `OnRecordAuthRequest` (zweiter Schritt vor Ausgabe des Tokens), Secret serverseitig verschlüsselt gespeichert, Pflicht für Admins (`require_2fa_admins`). Umsetzung in Phase 2 zusammen mit der Admin-Web-App.
+### 2.6 Zwei-Faktor-Authentisierung (umgesetzt in Phase 2)
+Geprüft im Quellcode von PocketBase v0.40.5: PocketBase bietet MFA nur als Kombination zweier **eingebauter** Methoden (Passwort + E-Mail-OTP oder OAuth2). **TOTP (Authenticator-App) ist nicht nativ vorhanden**, E-Mail-OTP scheidet aus (kein SMTP). Deshalb eigene Umsetzung (`apps/server/internal/lexichat/totp.go`):
+- RFC 6238 (HMAC-SHA1, 6 Ziffern, 30 s) – die Parameter, die alle gängigen Authenticator-Apps unterstützen; ±1 Zeitschritt Toleranz; **jeder Code nur einmal** (Replay-Schutz über `totp_last_step`). Geprüft mit den Testvektoren aus RFC 6238 und einer unabhängigen Node-Implementierung in den E2E-Tests.
+- Der Code wird als zusätzliches Feld `totp` im normalen Passwort-Login gesendet und **vor** Anlage der Sitzung geprüft. Falsche Codes zählen zur Kontosperre.
+- Das Secret wird mit AES-256-GCM verschlüsselt gespeichert (Schlüssel aus `LEXICHAT_SERVER_SECRET` abgeleitet, Benutzer-ID als Associated Data). **Folge:** Wird `LEXICHAT_SERVER_SECRET` geändert, müssen alle 2FA-Einrichtungen zurückgesetzt werden.
+- Einrichtung nur nach erneuter Passworteingabe; QR-Code wird lokal im Browser erzeugt.
+- Pflicht für Admins (`require_2fa_admins`, Standard an): Ohne 2FA ist ein Admin-Konto auf die Einrichtung beschränkt (Middleware + `requireAdmin`). Admins können 2FA nicht selbst abschalten; ein anderer Admin kann sie bei Geräteverlust zurücksetzen (Audit).
+- Restrisiko: TOTP ist nicht phishing-resistent (anders als FIDO2/WebAuthn). WebAuthn wäre ein sinnvoller späterer Ausbau.
+
+### 2.7 Private Schlüssel nie in der Web-App
+Die Admin-Web-App wird vom Server ausgeliefert und könnte bei einer Serverkompromittierung manipuliert werden. Deshalb verarbeitet sie **nie** private Schlüssel:
+- Passwortwechsel in der Web-App ist nur möglich, solange keine passwortverpackten Schlüssel existieren (Erstanmeldung, nach Admin-Reset). Sonst lehnt der Server ab (`/api/lexichat/me/password` verlangt dann neu verpackte Schlüssel), und die Web-App verweist auf die Windows-App.
+- Schlüssel werden ausschließlich in der (signierten) Windows-App erzeugt bzw. wiederhergestellt: `POST /api/lexichat/me/keys` (nur solange keine verpackten Schlüssel existieren, mit Passwortbestätigung).
 
 ## 3. Ende-zu-Ende-Verschlüsselung
 
@@ -174,7 +185,7 @@ LexiChat ist als **interner** Messenger für Beschäftigte einer Praxis konzipie
 | Phase | Inhalt | Status |
 |---|---|---|
 | 1 | Monorepo, Docker/Caddy, Collections + API-Rules + Rules-Tests, Admin-Bootstrap, Sitzungen, Brute-Force-Schutz, Audit-Log, Aufbewahrung, Backup/Restore-Skripte, Architektur/Bedrohungsmodell/Rechtekonzept | ✅ |
-| 2 | Admin-Web-App, Design-System, TOTP-2FA, Passwort-Policy (shared) | offen |
+| 2 | Admin-Web-App, Design-System, TOTP-2FA, Passwort-Policy, API-Client, E2E-/axe-Tests | ✅ |
 | 3 | Windows-App-Kern, `packages/crypto`, Realtime, Benachrichtigungen, Sperre | offen |
 | 4 | Broadcasts (`POST /api/lexichat/broadcasts`, serverseitige Empfängerliste) | offen |
 | 5 | Datenschutz-Paket, Löschkonzept technisch (Export Art. 15/20 usw.) | offen |

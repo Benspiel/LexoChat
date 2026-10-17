@@ -99,7 +99,33 @@ func (env *testEnv) createUser(username, role string) *core.Record {
 	if err := env.app.Save(u); err != nil {
 		env.t.Fatal(err)
 	}
+	if role == RoleAdmin {
+		// admins need the second factor (require_2fa_admins is on by default)
+		sealed, err := env.srv.sealTotpSecret(testTotpSecret(username), u.Id)
+		if err != nil {
+			env.t.Fatal(err)
+		}
+		u.Set("totp_enabled", true)
+		u.Set("totp_secret", sealed)
+		if err := env.app.Save(u); err != nil {
+			env.t.Fatal(err)
+		}
+	}
 	return u
+}
+
+func testTotpSecret(username string) []byte {
+	sum := sha256.Sum256([]byte("totp:" + username))
+	return sum[:20]
+}
+
+// currentTotp returns a valid code and resets the replay protection (tests log in repeatedly).
+func (env *testEnv) currentTotp(username string) string {
+	env.t.Helper()
+	if _, err := env.app.DB().NewQuery("UPDATE users SET totp_last_step = 0 WHERE username = {:u}").Bind(map[string]any{"u": username}).Execute(); err != nil {
+		env.t.Fatal(err)
+	}
+	return totpCode(testTotpSecret(username), uint64(now().Unix()/totpPeriod))
 }
 
 func (env *testEnv) reload(r *core.Record) *core.Record {
@@ -180,12 +206,15 @@ type client struct {
 	session string
 }
 
+// loginWith performs a password login; for accounts with TOTP a valid code is added automatically.
 func (env *testEnv) loginWith(username, password, origin string) response {
 	env.t.Helper()
-	return env.do("POST", "/api/collections/users/auth-with-password", map[string]any{
-		"identity": username,
-		"password": password,
-	}, reqOpts{origin: origin, headers: map[string]string{HeaderDevice: "Test-PC"}})
+	body := map[string]any{"identity": username, "password": password}
+	if u, err := env.app.FindFirstRecordByData(ColUsers, "username", username); err == nil && u.GetBool("totp_enabled") {
+		body["totp"] = env.currentTotp(username)
+	}
+	return env.do("POST", "/api/collections/users/auth-with-password", body,
+		reqOpts{origin: origin, headers: map[string]string{HeaderDevice: "Test-PC"}})
 }
 
 func (env *testEnv) login(u *core.Record) *client {

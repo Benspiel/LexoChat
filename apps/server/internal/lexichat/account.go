@@ -212,16 +212,23 @@ func (s *Server) handleChangePassword(e *core.RequestEvent) error {
 	if err := form.KdfParams.Validate(); err != nil {
 		return e.BadRequestError("Ungültige Schlüsselableitungsparameter.", nil)
 	}
-	if !validWrappedKeys(form.WrappedPrivateKeys) {
-		return e.BadRequestError("Ungültige verschlüsselte Schlüssel.", nil)
-	}
-
 	keysProvided := form.PublicEncKey != "" || form.PublicSignKey != ""
 	if keysProvided && (!validPublicKey(form.PublicEncKey) || !validPublicKey(form.PublicSignKey)) {
 		return e.BadRequestError("Ungültige öffentliche Schlüssel.", nil)
 	}
-	if !keysProvided && user.GetString("public_enc_key") == "" {
-		return e.BadRequestError("Es müssen neue Schlüssel erzeugt werden.", nil)
+	// Existing password-wrapped keys must be re-wrapped with the new key (otherwise they would be
+	// lost). Clients that never touch private keys (admin web app) can only change the password
+	// while no wrapped keys exist; the keys are then set up/restored in the desktop app (POST /me/keys).
+	hasWrapped := hasJSONValue(user, "wrapped_private_keys")
+	wrappedRequired := hasWrapped || keysProvided
+	if wrappedRequired && !validWrappedKeys(form.WrappedPrivateKeys) {
+		if hasWrapped && len(form.WrappedPrivateKeys) == 0 {
+			return e.BadRequestError("Ihr Passwort kann nur in der LexiChat-App geändert werden, weil dabei Ihre Schlüssel neu verschlüsselt werden.", nil)
+		}
+		return e.BadRequestError("Ungültige verschlüsselte Schlüssel.", nil)
+	}
+	if !wrappedRequired && len(form.WrappedPrivateKeys) > 0 {
+		return e.BadRequestError("Verschlüsselte Schlüssel ohne öffentliche Schlüssel sind nicht zulässig.", nil)
 	}
 	if len(form.RecoveryWrappedKeys) > 0 && !validWrappedKeys(form.RecoveryWrappedKeys) {
 		return e.BadRequestError("Ungültige Wiederherstellungsdaten.", nil)
@@ -233,7 +240,9 @@ func (s *Server) handleChangePassword(e *core.RequestEvent) error {
 	user.SetPassword(form.NewPassword)
 	user.Set("kdf_salt", form.KdfSalt)
 	user.Set("kdf_params", form.KdfParams)
-	user.Set("wrapped_private_keys", form.WrappedPrivateKeys)
+	if wrappedRequired {
+		user.Set("wrapped_private_keys", form.WrappedPrivateKeys)
+	}
 	user.Set("must_change_password", false)
 	if keysChanged {
 		user.Set("public_enc_key", form.PublicEncKey)
@@ -286,7 +295,130 @@ func (s *Server) requireAdmin(e *core.RequestEvent) error {
 	if !isActiveAdmin(e.Auth) {
 		return e.ForbiddenError("Nur für Administratorinnen und Administratoren.", nil)
 	}
+	if requires2FASetup(e.App, e.Auth) {
+		return e.ForbiddenError(msgTotpSetupReq, nil)
+	}
 	return e.Next()
+}
+
+// hasJSONValue reports whether a json field holds a non-empty value.
+func hasJSONValue(r *core.Record, field string) bool {
+	v := strings.TrimSpace(r.GetString(field))
+	return v != "" && v != "null" && v != "{}"
+}
+
+type keysForm struct {
+	Password            string          `json:"password"`
+	WrappedPrivateKeys  json.RawMessage `json:"wrappedPrivateKeys"`
+	PublicEncKey        string          `json:"publicEncKey"`
+	PublicSignKey       string          `json:"publicSignKey"`
+	RecoveryWrappedKeys json.RawMessage `json:"recoveryWrappedKeys"`
+}
+
+// handleSetupKeys stores (new or restored) key material while no password-wrapped
+// keys exist: first setup in the desktop app, or restore after an admin reset
+// (recovery key) - optionally with a new key pair if the recovery key is lost.
+func (s *Server) handleSetupKeys(e *core.RequestEvent) error {
+	var form keysForm
+	if err := e.BindBody(&form); err != nil {
+		return e.BadRequestError("Ungültige Anfrage.", nil)
+	}
+	user, err := e.App.FindRecordById(ColUsers, e.Auth.Id)
+	if err != nil {
+		return e.NotFoundError("", nil)
+	}
+	if user.GetBool("must_change_password") {
+		return e.ForbiddenError(msgMustChangePw, nil)
+	}
+	if hasJSONValue(user, "wrapped_private_keys") {
+		return e.BadRequestError("Es sind bereits Schlüssel eingerichtet.", nil)
+	}
+	if err := s.verifyCurrentPassword(e, user, form.Password); err != nil {
+		return err
+	}
+	if !validWrappedKeys(form.WrappedPrivateKeys) {
+		return e.BadRequestError("Ungültige verschlüsselte Schlüssel.", nil)
+	}
+	keysProvided := form.PublicEncKey != "" || form.PublicSignKey != ""
+	if keysProvided && (!validPublicKey(form.PublicEncKey) || !validPublicKey(form.PublicSignKey)) {
+		return e.BadRequestError("Ungültige öffentliche Schlüssel.", nil)
+	}
+	if !keysProvided && user.GetString("public_enc_key") == "" {
+		return e.BadRequestError("Es müssen neue Schlüssel erzeugt werden.", nil)
+	}
+	if len(form.RecoveryWrappedKeys) > 0 && !validWrappedKeys(form.RecoveryWrappedKeys) {
+		return e.BadRequestError("Ungültige Wiederherstellungsdaten.", nil)
+	}
+
+	keysChanged := keysProvided &&
+		(form.PublicEncKey != user.GetString("public_enc_key") || form.PublicSignKey != user.GetString("public_sign_key"))
+
+	user.Set("wrapped_private_keys", form.WrappedPrivateKeys)
+	if keysChanged {
+		user.Set("public_enc_key", form.PublicEncKey)
+		user.Set("public_sign_key", form.PublicSignKey)
+		user.Set("key_version", user.GetInt("key_version")+1)
+		user.Set("keys_updated", types.NowDateTime())
+	}
+	if len(form.RecoveryWrappedKeys) > 0 {
+		user.Set("recovery_wrapped_keys", form.RecoveryWrappedKeys)
+	} else if keysChanged {
+		user.Set("recovery_wrapped_keys", nil)
+	}
+	if err := e.App.Save(user); err != nil {
+		return e.BadRequestError("Die Schlüssel konnten nicht gespeichert werden.", err)
+	}
+
+	details := map[string]any{"restored": !keysChanged}
+	if keysChanged {
+		details["keyVersion"] = user.GetInt("key_version")
+		details["fingerprint"] = keyFingerprint(form.PublicEncKey, form.PublicSignKey)
+	}
+	s.Audit(e.App, AuditEntry{Action: AuditKeysChanged, Actor: user, TargetType: ColUsers, TargetId: user.Id, Details: details, IP: e.RealIP()})
+	return e.NoContent(http.StatusNoContent)
+}
+
+func (s *Server) findOtherUser(e *core.RequestEvent) (*core.Record, error) {
+	id := e.Request.PathValue("id")
+	if id == e.Auth.Id {
+		return nil, e.BadRequestError("Diese Aktion ist für das eigene Konto nicht möglich.", nil)
+	}
+	user, err := e.App.FindRecordById(ColUsers, id)
+	if err != nil {
+		return nil, e.NotFoundError("Benutzer nicht gefunden.", nil)
+	}
+	return user, nil
+}
+
+func (s *Server) handleAdminUnlock(e *core.RequestEvent) error {
+	user, err := s.findOtherUser(e)
+	if err != nil {
+		return err
+	}
+	if err := resetFailedLogins(e.App, user.Id); err != nil {
+		return e.InternalServerError("", err)
+	}
+	s.Audit(e.App, AuditEntry{Action: AuditUserUnlocked, Actor: e.Auth, TargetType: ColUsers, TargetId: user.Id, TargetLabel: user.GetString("username"), IP: e.RealIP()})
+	return e.NoContent(http.StatusNoContent)
+}
+
+func (s *Server) handleAdminResetTotp(e *core.RequestEvent) error {
+	user, err := s.findOtherUser(e)
+	if err != nil {
+		return err
+	}
+	clearTotp(user)
+	err = e.App.RunInTransaction(func(txApp core.App) error {
+		if err := txApp.Save(user); err != nil {
+			return err
+		}
+		return deleteUserSessions(txApp, user.Id, "")
+	})
+	if err != nil {
+		return e.InternalServerError("", err)
+	}
+	s.Audit(e.App, AuditEntry{Action: AuditUserTotpReset, Actor: e.Auth, TargetType: ColUsers, TargetId: user.Id, TargetLabel: user.GetString("username"), IP: e.RealIP()})
+	return e.NoContent(http.StatusNoContent)
 }
 
 func (s *Server) handleAdminCreateUser(e *core.RequestEvent) error {

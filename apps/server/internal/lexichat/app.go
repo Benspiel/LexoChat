@@ -60,9 +60,9 @@ func Register(app core.App, cfg Config) (*Server, error) {
 				Func:     s.sessionMiddleware,
 			})
 			e.Router.Bind(&hook.Handler[*core.RequestEvent]{
-				Id:       "lexichatMustChangePassword",
+				Id:       "lexichatRestrictedAccount",
 				Priority: apis.DefaultLoadAuthTokenMiddlewarePriority + 2,
-				Func:     s.mustChangePasswordMiddleware,
+				Func:     s.restrictedAccountMiddleware,
 			})
 
 			s.registerRoutes(e)

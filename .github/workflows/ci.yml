@@ -34,6 +34,35 @@ jobs:
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
+  web:
+    name: TypeScript-Pakete + Admin-Web-App (Unit, E2E, axe)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Install (frozen lockfile)
+        run: corepack enable && pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Unit tests (crypto vectors, password policy, api client, design tokens)
+        run: pnpm test
+      - name: Dependency audit
+        run: pnpm audit --audit-level high
+      - name: Playwright browser
+        working-directory: apps/admin-web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: E2E against a real server (incl. axe WCAG 2.1 AA and production CSP)
+        working-directory: apps/admin-web
+        run: pnpm e2e
+
   caddy:
     name: Caddyfile validieren
     runs-on: ubuntu-24.04

@@ -19,7 +19,7 @@ var (
 	adminEditableFields = []string{"name", "avatar", "username", "role", "active"}
 
 	// fields that are only shown to the owner, admins and superusers
-	privateUserFields = []string{"role", "must_change_password", "email", "emailVisibility", "verified", "created", "updated"}
+	privateUserFields = []string{"role", "must_change_password", "totp_enabled", "email", "emailVisibility", "verified", "created", "updated"}
 )
 
 func isActiveAdmin(r *core.Record) bool {
@@ -173,6 +173,10 @@ func (s *Server) registerUserHooks(app core.App) {
 			return e.Next()
 		}
 		if info.Auth.IsSuperuser() || info.Auth.Id == e.Record.Id || isActiveAdmin(info.Auth) {
+			// derived, read-only state for the admin ui (locked_until itself stays hidden)
+			e.Record.WithCustomData(true)
+			e.Record.Set("locked", isLocked(e.Record, now()))
+			e.Record.Set("has_keys", e.Record.GetString("public_enc_key") != "")
 			return e.Next()
 		}
 		e.Record.Hide(privateUserFields...)

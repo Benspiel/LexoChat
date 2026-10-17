@@ -100,10 +100,19 @@ func (s *Server) sessionMiddleware(e *core.RequestEvent) error {
 	return e.Next()
 }
 
-// mustChangePasswordMiddleware limits accounts with a one-time password
-// to the endpoints that are needed to set a new password.
-func (s *Server) mustChangePasswordMiddleware(e *core.RequestEvent) error {
-	if e.Auth == nil || e.Auth.Collection().Name != ColUsers || !e.Auth.GetBool("must_change_password") {
+// restrictedAccountMiddleware limits accounts with a one-time password (or admins
+// without the mandatory second factor) to the endpoints needed to fix that.
+func (s *Server) restrictedAccountMiddleware(e *core.RequestEvent) error {
+	if e.Auth == nil || e.Auth.Collection().Name != ColUsers {
+		return e.Next()
+	}
+	msg := ""
+	switch {
+	case e.Auth.GetBool("must_change_password"):
+		msg = msgMustChangePw
+	case requires2FASetup(e.App, e.Auth):
+		msg = msgTotpSetupReq
+	default:
 		return e.Next()
 	}
 
@@ -114,7 +123,7 @@ func (s *Server) mustChangePasswordMiddleware(e *core.RequestEvent) error {
 		(method == "GET" && path == "/api/collections/users/records/"+e.Auth.Id) ||
 		(method == "DELETE" && strings.HasPrefix(path, "/api/collections/sessions/records/"))
 	if !allowed {
-		return e.ForbiddenError(msgMustChangePw, nil)
+		return e.ForbiddenError(msg, nil)
 	}
 	return e.Next()
 }
