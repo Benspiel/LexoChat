@@ -1,8 +1,11 @@
 package lexichat
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -45,6 +48,43 @@ func ConfigFromEnv() (Config, error) {
 		TrustProxy:     os.Getenv("LEXICHAT_TRUST_PROXY") == "true",
 	}
 	return cfg, cfg.Validate()
+}
+
+// secretFileName holds the generated server secret inside the data directory.
+const secretFileName = ".lexichat_secret"
+
+// LoadOrCreateSecret returns the server secret stored in the data directory and
+// creates a random one on first start. This way "docker compose up" works without
+// any configuration; LEXICHAT_SERVER_SECRET still takes precedence. The file is
+// part of every pb_data backup, so ip hashes stay comparable after a restore.
+func LoadOrCreateSecret(dataDir string) (string, error) {
+	path := filepath.Join(dataDir, secretFileName)
+	if b, err := os.ReadFile(path); err == nil {
+		if secret := strings.TrimSpace(string(b)); len(secret) >= minSecretLen {
+			return secret, nil
+		}
+		return "", errors.New(path + " is invalid (shorter than 32 characters)")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+
+	buf := make([]byte, 48)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	secret := base64.StdEncoding.EncodeToString(buf)
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		return "", err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return "", err
+	}
+	if _, err := f.WriteString(secret + "\n"); err != nil {
+		f.Close()
+		return "", err
+	}
+	return secret, f.Close()
 }
 
 // Validate checks the configuration.

@@ -33,7 +33,7 @@ SSH nur mit Schlüssel (`PasswordAuthentication no`, `PermitRootLogin no`).
 
 ## 2. Erstinstallation
 
-> **Windows-PC mit Docker Desktop?** Dann reicht ein Doppelklick auf `deploy\windows\LexiChat-Starten.bat` – siehe [LexiChat auf Windows mit Docker](windows-docker.md).
+> **Nur ausprobieren / Windows mit Docker Desktop?** `docker compose up -d --build` im Hauptordner reicht – ohne `.env` (lokale Adressen `chat.localhost`/`admin.localhost`, Server-Geheimnis wird automatisch erzeugt). Siehe [LexiChat auf Windows mit Docker](windows-docker.md).
 
 ```bash
 git clone <repo> /opt/lexichat && cd /opt/lexichat/deploy

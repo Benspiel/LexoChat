@@ -22,6 +22,14 @@ func main() {
 		return
 	}
 
+	if os.Getenv("LEXICHAT_SERVER_SECRET") == "" {
+		secret, err := lexichat.LoadOrCreateSecret(app.DataDir())
+		if err != nil {
+			log.Fatal(err)
+		}
+		os.Setenv("LEXICHAT_SERVER_SECRET", secret)
+	}
+
 	cfg, err := lexichat.ConfigFromEnv()
 	if err != nil {
 		log.Fatal(err)

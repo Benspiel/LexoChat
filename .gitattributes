@@ -5,9 +5,6 @@ Caddyfile text eol=lf
 Dockerfile text eol=lf
 *.yml text eol=lf
 .env.example text eol=lf
-# Windows helpers
-*.ps1 text eol=crlf
-*.bat text eol=crlf
 *.png binary
 *.ico binary
 *.icns binary

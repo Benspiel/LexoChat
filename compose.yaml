@@ -1,0 +1,7 @@
+# Start LexiChat from the repo root:  docker compose up -d --build
+# (the stack itself is defined in deploy/docker-compose.yml, configuration in deploy/.env)
+# Same project name as in deploy/ -> same containers and data volumes from both folders.
+name: lexichat
+
+include:
+  - deploy/docker-compose.yml

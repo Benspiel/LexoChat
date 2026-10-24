@@ -116,9 +116,15 @@ Mehr dazu: [Architektur](docs/00-architektur.md) · [Bedrohungsmodell](docs/01-b
 
 ## Installation (Server)
 
-**Windows mit Docker Desktop (am einfachsten):** Docker Desktop installieren und starten, dann `deploy\windows\LexiChat-Starten.bat` doppelklicken. Das Skript fragt nach dem Server-Namen (Enter = nur dieser PC), erzeugt die Konfiguration, baut und startet alles und legt das erste Admin-Konto an. Details: [LexiChat auf Windows mit Docker](docs/windows-docker.md).
+**Schnellstart (Windows mit Docker Desktop oder Linux) – ohne Konfiguration:**
 
-**Linux-Server**, Kurzfassung – die vollständige Anleitung steht im [Betriebshandbuch](docs/betriebshandbuch.md):
+```bash
+docker compose up -d --build
+docker compose exec server /app/lexichat bootstrap-admin --dir /pb_data --username praxisadmin --name "Praxis-Administration"
+```
+Danach läuft die Admin-Web-App unter <https://admin.localhost> (lokales Zertifikat). Details: [LexiChat auf Windows mit Docker](docs/windows-docker.md).
+
+**Produktivserver mit eigener Domain**, Kurzfassung – die vollständige Anleitung steht im [Betriebshandbuch](docs/betriebshandbuch.md):
 
 ```bash
 cd deploy
