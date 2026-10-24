@@ -33,14 +33,14 @@ SSH nur mit Schlüssel (`PasswordAuthentication no`, `PermitRootLogin no`).
 
 ## 2. Erstinstallation
 
+> **Windows-PC mit Docker Desktop?** Dann reicht ein Doppelklick auf `deploy\windows\LexiChat-Starten.bat` – siehe [LexiChat auf Windows mit Docker](windows-docker.md).
+
 ```bash
 git clone <repo> /opt/lexichat && cd /opt/lexichat/deploy
 cp .env.example .env && chmod 600 .env
 openssl rand -base64 48            # -> LEXICHAT_SERVER_SECRET in .env
 $EDITOR .env                       # Domains, E-Mail, Origins
-# Admin-Web-App bauen (auf einem Build-Rechner mit Node 22 + pnpm, oder direkt auf dem Server):
-(cd .. && corepack enable && pnpm install --frozen-lockfile && pnpm build:admin)
-rm -rf admin-web-dist && cp -r ../apps/admin-web/dist admin-web-dist
+# die Admin-Web-App wird im Caddy-Image mitgebaut (kein Node/pnpm auf dem Server nötig)
 docker compose up -d --build
 docker compose ps                  # beide Dienste "healthy"/"running"
 ./scripts/create-first-admin.sh praxisadmin "Praxis-Administration"
@@ -92,10 +92,9 @@ Das Skript prüft die Prüfsumme, sichert den aktuellen Stand verschlüsselt, sp
 ## 5a. Admin-Web-App aktualisieren
 
 ```bash
-cd /opt/lexichat && git pull && pnpm install --frozen-lockfile && pnpm build:admin
-rm -rf deploy/admin-web-dist && cp -r apps/admin-web/dist deploy/admin-web-dist
+cd /opt/lexichat && git pull && cd deploy && docker compose up -d --build caddy
 ```
-Caddy liefert die neuen Dateien sofort aus (`index.html` wird nicht gecacht).
+Die Admin-Web-App ist Teil des Caddy-Images (`deploy/caddy/Dockerfile`); `index.html` wird nicht gecacht.
 
 ## 5b. Windows-App bauen, signieren und verteilen
 
@@ -129,7 +128,7 @@ Caddy liefert die neuen Dateien sofort aus (`index.html` wird nicht gecacht).
 - Benachrichtigungen auf dem Sperrbildschirm aus (Benutzerkonfiguration → Administrative Vorlagen → Startmenü und Taskleiste → Benachrichtigungen → „Popupbenachrichtigungen auf dem Sperrbildschirm deaktivieren“) – die genaue Bezeichnung kann je nach Windows-Version abweichen.
 - BitLocker, automatische Bildschirmsperre, keine lokalen Admin-Rechte, Windows-Updates.
 
-**Hinweis:** Die nativen Funktionen (Credential Manager, Toasts, Screenshot-Schutz, Tray, Autostart, Updater) wurden in der Entwicklungsumgebung nur gegen das Windows-Ziel kompiliert, **nicht auf echtem Windows ausgeführt**. Vor dem Rollout auf einem Test-PC prüfen: Anmeldung, „Angemeldet bleiben“ nach Neustart, Toast ohne Inhalt, Screenshot zeigt schwarzes Fenster, Tray „Sperren“, Update von Version n auf n+1.
+**Hinweis:** Die nativen Funktionen (Credential Manager, Toasts, Screenshot-Schutz, Tray, Autostart, Updater) wurden in der Entwicklungsumgebung nur gegen das Windows-Ziel kompiliert, **nicht auf echtem Windows ausgeführt**. Vor dem Rollout auf einem Test-PC prüfen: Anmeldung, „Einmal anmelden“ (nach PC-Neustart ohne Passwort im Chat), Toast ohne Inhalt, Screenshot zeigt schwarzes Fenster, Tray „Sperren“, Update von Version n auf n+1.
 
 ## 6. Notfälle
 

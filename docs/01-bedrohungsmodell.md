@@ -59,7 +59,7 @@
 
 ### 4.1 Verlorener / gestohlener Laptop
 - Ohne Windows-Anmeldung: lokaler Cache verschlüsselt (Schlüssel im Credential Manager/DPAPI, an das Windows-Konto gebunden) ✅. Festplattenverschlüsselung (BitLocker) ⚠️ organisatorisch Pflicht.
-- Bei entsperrtem Gerät: App-Sperre nach Inaktivität (Standard 10 min) und Tray „Sperren“ ✅.
+- Bei entsperrtem Gerät: App-Sperre nach Inaktivität (Standard 10 min) und Tray „Sperren“ – seit „Einmal anmelden“ nur Sichtschutz ohne Passwort ⚠️. Maßnahme: automatische Windows-Bildschirmsperre per GPO, eigene Windows-Konten pro Person (kein Sammelkonto!). Gestohlene Credential-Manager-Daten sind ohne das Windows-Konto (DPAPI) nicht nutzbar; die Sitzung ist in der Sitzungsliste widerrufbar.
 - Reaktion: Admin beendet die Sitzung des Geräts bzw. deaktiviert das Konto → sofort wirksam, Realtime wird getrennt ✅.
 
 ### 4.2 Kompromittierter Admin

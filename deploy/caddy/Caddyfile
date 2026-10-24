@@ -6,6 +6,8 @@
 # - no access log (it would contain ip addresses); errors only
 {
 	email {$ACME_EMAIL}
+	# the local CA (LEXICHAT_TLS=internal) is trusted on the clients, not in the container
+	skip_install_trust
 	order rate_limit before reverse_proxy
 	servers {
 		protocols h1 h2
@@ -15,8 +17,11 @@
 	}
 }
 
+# LEXICHAT_TLS empty: public certificates (ACME / Let's Encrypt, needs a public domain).
+# LEXICHAT_TLS=internal: own local CA (practice network without internet domain,
+# e.g. Windows Docker Desktop). *.localhost always uses the local CA.
 (tls13) {
-	tls {
+	tls {$LEXICHAT_TLS} {
 		protocols tls1.3
 	}
 }
@@ -55,7 +60,7 @@
 			rate_limit {
 				zone login {
 					match {
-						path /api/collections/users/auth-with-password /api/lexichat/prelogin /api/lexichat/me/password
+						path /api/collections/users/auth-with-password /api/lexichat/prelogin /api/lexichat/me/password /api/lexichat/session/resume
 					}
 					key {remote_host}
 					events 30

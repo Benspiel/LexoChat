@@ -1,6 +1,7 @@
 import {
   DEFAULT_KDF_PARAMS,
   deriveKeys,
+  fromB64,
   generateIdentity,
   newRecoveryKey,
   newSalt,
@@ -161,18 +162,6 @@ export async function replaceKeys(step: LoginStep): Promise<string> {
   return setupNewKeys(step);
 }
 
-/** Unlock after the inactivity lock: purely local (no server round trip). */
-export async function unlockLocally(u: Unlocked | { wrapped: WrappedKeys; kdf: Unlocked["kdf"] }, password: string): Promise<Identity> {
-  const keys = await deriveKeys(password, u.kdf.salt, u.kdf.params);
-  try {
-    return await unwrapIdentity(u.wrapped, keys.kek);
-  } catch {
-    throw new Error("Das Passwort ist falsch.");
-  } finally {
-    (await sodium()).memzero(keys.kek);
-  }
-}
-
 /** Voluntary password change in the app: re-wraps the private keys with the new kek. */
 export async function changePassword(u: Unlocked, current: string, next: string): Promise<Unlocked> {
   const old = await deriveKeys(current, u.kdf.salt, u.kdf.params);
@@ -217,22 +206,41 @@ export async function renewRecoveryKey(u: Unlocked): Promise<string> {
   return recoveryKey;
 }
 
-// ---------------------------------------------------------------- "Angemeldet bleiben"
+// ---------------------------------------------------------------- "Einmal anmelden"
 
+/**
+ * Remembered device login. Stored only in the Windows Credential Manager (DPAPI,
+ * bound to the Windows account): the session id + resume secret for the server and
+ * the private keys wrapped with a random device key. The password is never stored.
+ */
 interface Remembered {
-  token: string;
+  v: 2;
   sessionId: string;
+  resumeSecret: string;
   user: UserRecord;
   wrapped: WrappedKeys;
   kdf: Unlocked["kdf"];
+  deviceKey: string;
+  deviceWrapped: WrappedKeys;
 }
 
 const REMEMBER_KEY = "session";
 
-/** Stores the server session (not the password, not the private keys in clear) in the Credential Manager. */
 export async function remember(u: Unlocked): Promise<void> {
-  if (!client.auth) return;
-  const data: Remembered = { token: client.auth.token, sessionId: client.auth.sessionId, user: u.user, wrapped: u.wrapped, kdf: u.kdf };
+  if (!client.auth?.resumeSecret) return;
+  const s = await sodium();
+  const deviceKey = s.randombytes_buf(32);
+  const data: Remembered = {
+    v: 2,
+    sessionId: client.auth.sessionId,
+    resumeSecret: client.auth.resumeSecret,
+    user: u.user,
+    wrapped: u.wrapped,
+    kdf: u.kdf,
+    deviceKey: await toB64(deviceKey),
+    deviceWrapped: await wrapIdentity(u.identity, deviceKey),
+  };
+  s.memzero(deviceKey);
   await secrets.set(REMEMBER_KEY, JSON.stringify(data));
 }
 
@@ -244,24 +252,43 @@ export async function loadRemembered(): Promise<Remembered | null> {
   const raw = await secrets.get(REMEMBER_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as Remembered;
+    const r = JSON.parse(raw) as Partial<Remembered>;
+    return r.v === 2 && r.resumeSecret && r.deviceKey && r.deviceWrapped ? (r as Remembered) : null;
   } catch {
     return null;
   }
 }
 
-/** Resumes a remembered session: unlock with the password (local), then refresh the token. */
-export async function resume(r: Remembered, password: string): Promise<Unlocked> {
-  const identity = await unlockLocally(r, password);
-  client.auth = { token: r.token, sessionId: r.sessionId, record: r.user };
+/** Private keys from the device storage (start, lock screen) – no password needed. */
+export async function unlockFromDevice(r?: Remembered | null): Promise<Identity> {
+  const rem = r ?? (await loadRemembered());
+  if (!rem) throw new Error("Auf diesem Gerät ist keine Anmeldung gespeichert. Bitte melden Sie sich neu an.");
+  const key = await fromB64(rem.deviceKey);
   try {
-    await client.refresh();
-  } catch (err) {
-    await wipeIdentity(identity);
-    await forget();
-    throw err instanceof ApiError && err.status === 401 ? new Error("Ihre gespeicherte Sitzung ist abgelaufen. Bitte melden Sie sich neu an.") : err;
+    return await unwrapIdentity(rem.deviceWrapped, key);
+  } finally {
+    (await sodium()).memzero(key);
   }
-  return { user: client.auth?.record ?? r.user, identity, wrapped: r.wrapped, kdf: r.kdf };
+}
+
+/** App start: resumes the remembered session without asking for the password. */
+export async function resume(r: Remembered): Promise<Unlocked> {
+  let login: LoginResult;
+  try {
+    login = await client.resume(r.sessionId, r.resumeSecret);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) {
+      await forget();
+      throw new Error("Ihre gespeicherte Anmeldung ist nicht mehr gültig. Bitte melden Sie sich einmal neu an.");
+    }
+    throw err;
+  }
+  if (login.mustChangePassword) {
+    await forget();
+    throw new Error("Bitte melden Sie sich neu an.");
+  }
+  const identity = await unlockFromDevice(r);
+  return { user: login.record, identity, wrapped: r.wrapped, kdf: r.kdf };
 }
 
 export async function logout(): Promise<void> {

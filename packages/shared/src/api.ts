@@ -25,6 +25,8 @@ export interface AuthState {
   token: string;
   sessionId: string;
   record: UserRecord;
+  /** desktop only: long lived secret to resume this session without the password */
+  resumeSecret?: string;
 }
 
 export interface UserRecord {
@@ -154,7 +156,22 @@ export class LexiChatClient {
       "/api/collections/users/auth-with-password",
       body,
     );
+    return this.applyLogin(res);
+  }
+
+  /** Resumes a remembered desktop session with its resume secret (no password needed). */
+  async resume(sessionId: string, resumeSecret: string): Promise<LoginResult> {
+    const res = await this.request<{ token: string; record: UserRecord; meta: Record<string, unknown> }>("POST", "/api/lexichat/session/resume", {
+      sessionId,
+      resumeSecret,
+    });
+    return this.applyLogin({ ...res, meta: { ...res.meta, resumeSecret } });
+  }
+
+  private applyLogin(res: { token: string; record: UserRecord; meta: Record<string, unknown> }): LoginResult {
+    const secret = res.meta["resumeSecret"];
     this.auth = { token: res.token, sessionId: String(res.meta["sessionId"]), record: res.record };
+    if (typeof secret === "string" && secret) this.auth.resumeSecret = secret;
     return {
       ...this.auth,
       mustChangePassword: res.meta["mustChangePassword"] === true,

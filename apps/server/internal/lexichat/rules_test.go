@@ -320,15 +320,114 @@ func TestSessionBinding(t *testing.T) {
 func TestSessionExpiry(t *testing.T) {
 	env := newTestEnv(t)
 	alice := env.createUser("alice", RoleUser)
+	admin := env.createUser("admin", RoleAdmin)
 	c := env.login(alice)
 
+	// desktop: no idle timeout ("einmal anmelden")
 	sess, _ := env.app.FindRecordById(ColSessions, c.session)
 	sess.Set("last_seen", types.NowDateTime().Add(-48*time.Hour))
 	if err := env.app.Save(sess); err != nil {
 		t.Fatal(err)
 	}
+	if res := c.do("GET", "/api/collections/chats/records", nil); res.Status != 200 {
+		t.Fatalf("idle desktop session must stay valid: %d", res.Status)
+	}
+	// ... and the expiry slides forward with use
+	sess, _ = env.app.FindRecordById(ColSessions, c.session)
+	if sess.GetDateTime("expires_at").Time().Before(time.Now().Add(desktopSessionLifetime - time.Hour)) {
+		t.Fatalf("desktop session expiry must slide: %s", sess.GetDateTime("expires_at"))
+	}
+
+	// expired desktop session is rejected
+	sess.Set("expires_at", types.NowDateTime().Add(-time.Minute))
+	if err := env.app.Save(sess); err != nil {
+		t.Fatal(err)
+	}
 	if res := c.do("GET", "/api/collections/chats/records", nil); res.Status != 401 {
-		t.Fatalf("idle session must be rejected: %d", res.Status)
+		t.Fatalf("expired session must be rejected: %d", res.Status)
+	}
+
+	// admin web keeps the idle timeout
+	res := env.loginWith("admin", testPassword("admin"), testAdminOrigin)
+	meta, _ := res.Body["meta"].(map[string]any)
+	sid, _ := meta["sessionId"].(string)
+	if _, has := meta["resumeSecret"]; has {
+		t.Fatal("admin web sessions must not get a resume secret")
+	}
+	as, _ := env.app.FindRecordById(ColSessions, sid)
+	as.Set("last_seen", types.NowDateTime().Add(-48*time.Hour))
+	if err := env.app.Save(as); err != nil {
+		t.Fatal(err)
+	}
+	ac := &client{env: env, user: admin, token: res.str("token"), session: sid}
+	if r := ac.do("GET", "/api/collections/chats/records", nil); r.Status != 401 {
+		t.Fatalf("idle admin web session must be rejected: %d", r.Status)
+	}
+}
+
+func TestResumeSession(t *testing.T) {
+	env := newTestEnv(t)
+	alice := env.createUser("alice", RoleUser)
+
+	res := env.loginWith("alice", testPassword("alice"), "")
+	meta, _ := res.Body["meta"].(map[string]any)
+	sid, _ := meta["sessionId"].(string)
+	secret, _ := meta["resumeSecret"].(string)
+	if sid == "" || len(secret) != 64 {
+		t.Fatalf("desktop login must return a resume secret: %s", res.Raw)
+	}
+	sess, _ := env.app.FindRecordById(ColSessions, sid)
+	if sess.GetString("resume_hash") == secret || sess.GetString("resume_hash") == "" {
+		t.Fatal("only the hash of the resume secret may be stored")
+	}
+
+	resume := func(id, sec string) response {
+		return env.do("POST", "/api/lexichat/session/resume", map[string]any{"sessionId": id, "resumeSecret": sec}, reqOpts{})
+	}
+
+	r := resume(sid, secret)
+	if r.Status != 200 || r.str("token") == "" {
+		t.Fatalf("resume failed: %d %s", r.Status, r.Raw)
+	}
+	if strings.Contains(r.Raw, "resume_hash") || strings.Contains(r.Raw, secret) {
+		t.Fatal("resume response must not leak the secret")
+	}
+	c := &client{env: env, user: alice, token: r.str("token"), session: sid}
+	if got := c.do("GET", "/api/collections/chats/records", nil); got.Status != 200 {
+		t.Fatalf("resumed token must work: %d", got.Status)
+	}
+
+	wrong := strings.Repeat("0", 64)
+	if r := resume(sid, wrong); r.Status != 401 {
+		t.Fatalf("wrong secret must be rejected: %d", r.Status)
+	}
+	if r := resume("nosuchsession12", secret); r.Status != 401 {
+		t.Fatalf("unknown session must be rejected: %d", r.Status)
+	}
+
+	// deactivated account
+	alice = env.reload(alice)
+	alice.Set("active", false)
+	if err := env.app.Save(alice); err != nil {
+		t.Fatal(err)
+	}
+	if r := resume(sid, secret); r.Status != 401 {
+		t.Fatalf("inactive user must not resume: %d", r.Status)
+	}
+
+	// revoked session
+	alice.Set("active", true)
+	if err := env.app.Save(alice); err != nil {
+		t.Fatal(err)
+	}
+	sess, _ = env.app.FindRecordById(ColSessions, sid)
+	if sess != nil {
+		if err := env.app.Delete(sess); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if r := resume(sid, secret); r.Status != 401 {
+		t.Fatalf("revoked session must not resume: %d", r.Status)
 	}
 }
 

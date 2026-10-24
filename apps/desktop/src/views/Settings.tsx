@@ -4,7 +4,7 @@ import { fingerprint } from "@lexichat/crypto";
 import { filterString } from "@lexichat/shared";
 import { Avatar, Button, Dialog, Notice, SelectField, Segmented, Spinner, TextField, Toggle } from "@lexichat/ui";
 import { autostart, checkForUpdate, setCaptureProtection } from "../lib/platform";
-import { changePassword, client, remember, forget, renewRecoveryKey, type Unlocked } from "../lib/session";
+import { changePassword, client, remember, renewRecoveryKey, type Unlocked } from "../lib/session";
 import { getState, updateLocal, updatePrefs, updateProfile, useStore } from "../lib/store";
 import { NewPasswordFields, usePasswordValid } from "./Auth";
 import { getUnlocked, setUnlocked } from "./unlockedRef";
@@ -135,7 +135,7 @@ function PasswordSection({ onLogout }: { onLogout: () => void }) {
     try {
       const updated: Unlocked = await changePassword(u, current, next);
       setUnlocked(updated);
-      if (getState().local.local.rememberMe) await remember(updated);
+      await remember(updated);
       setCurrent("");
       setNext("");
       setRepeat("");
@@ -372,7 +372,6 @@ function PrivacySection() {
 // ------------------------------------------------------------------ app & data
 
 function AppSection() {
-  const remembered = useStore((s) => s.local.local.rememberMe);
   const [auto, setAuto] = useState(false);
   const [msg, setMsg] = useState<{ kind: "success" | "error" | "info"; text: string } | null>(null);
   useEffect(() => {
@@ -381,17 +380,10 @@ function AppSection() {
   return (
     <div className="lx-stack">
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
-      <Toggle
-        checked={remembered}
-        label="Angemeldet bleiben"
-        description="Die Sitzung wird im Windows-Anmeldeinformationsspeicher abgelegt. Beim Start ist trotzdem Ihr Passwort nötig (lokal, ohne Server)."
-        onChange={async (v) => {
-          await updateLocal({ rememberMe: v });
-          const u = getUnlocked();
-          if (v && u) await remember(u);
-          else await forget();
-        }}
-      />
+      <p className="lx-small lx-muted-strong">
+        Sie bleiben auf diesem PC angemeldet und brauchen Ihr Passwort nicht erneut. Die Anmeldung liegt geschützt im
+        Windows-Anmeldeinformationsspeicher und endet erst mit „Abmelden“, einer Passwortänderung oder wenn die Praxis die Sitzung beendet.
+      </p>
       <Toggle
         checked={auto}
         label="Beim Windows-Start öffnen"

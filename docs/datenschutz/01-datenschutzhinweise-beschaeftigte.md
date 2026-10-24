@@ -57,7 +57,7 @@ Eine Einwilligung ist nicht erforderlich.
 | Daten | Dauer |
 |---|---|
 | Nachrichten | automatische Löschung nach {{AUFBEWAHRUNG_NACHRICHTEN}} Tagen (Standard 90) |
-| Sitzungen | bis Abmeldung, max. {{SITZUNG_MAX}} Tage bzw. nach {{LEERLAUF}} Stunden Inaktivität |
+| Sitzungen | bis Abmeldung; Admin-Web-App max. {{SITZUNG_MAX}} Tage bzw. nach {{LEERLAUF}} Stunden Inaktivität; Windows-App 365 Tage nach der letzten Nutzung |
 | Audit-Log | {{AUFBEWAHRUNG_AUDIT}} Tage (Standard 365) |
 | Server-Protokolle (Requests) | 30 Tage, ohne IP-Adresse |
 | Konto | bis zum Ausscheiden; danach Deaktivierung und Anonymisierung nach {{FRIST_ANONYMISIERUNG}} Tagen (Standard 180) |

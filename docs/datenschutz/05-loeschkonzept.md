@@ -15,7 +15,7 @@ LexiChat ist kein Ort für die Patientendokumentation. Dokumentationspflichtige 
 | Nachrichten (verschlüsselt) inkl. Lesebestätigungen | {{90}} Tage (1–3650 konfigurierbar) | Erstellung | `expires_at` je Nachricht; Job löscht abgelaufene Nachrichten (Lesebestätigungen kaskadierend) |
 | „Löschen für alle“ | sofort | Aktion der absendenden Person | Datensatz wird serverseitig gelöscht, Empfänger-Apps entfernen ihn |
 | Broadcast-Klammer | wie Nachrichten | Erstellung | `expires_at` |
-| Sitzungen | max. {{14}} Tage, Leerlauf {{8}} h | Anmeldung / letzte Aktivität | Job; Abmelden löscht sofort |
+| Sitzungen | Admin-Web: max. {{14}} Tage, Leerlauf {{8}} h; Windows-App: bis Abmeldung/Widerruf, 365 Tage nach letzter Nutzung | Anmeldung / letzte Aktivität | Job; Abmelden löscht sofort |
 | Audit-Log | {{365}} Tage (mind. 30) | Ereignis | Job (SQL), Hash-Kette beginnt ab ältestem verbliebenen Eintrag |
 | Request-Logs des Servers | 30 Tage | Anfrage | PocketBase-Einstellung, erzwungen beim Start |
 | Konten ausgeschiedener Mitarbeitender | Deaktivierung am letzten Arbeitstag; Anonymisierung nach {{180}} Tagen | Deaktivierung (`deactivated_at`) | Job `anonymizeLongDeactivated`; manuell sofort möglich |

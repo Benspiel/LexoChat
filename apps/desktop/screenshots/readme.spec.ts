@@ -184,7 +184,6 @@ test("windows app", async ({ browser }) => {
   await anna!.keyboard.press("Control+l");
   await expect(anna!.getByRole("heading", { name: "LexiChat ist gesperrt." })).toBeVisible();
   await shot(anna!, "desktop-gesperrt");
-  await anna!.getByLabel("Passwort").fill(PW.anna!);
   await anna!.getByRole("button", { name: "Entsperren" }).click();
 });
 

@@ -92,7 +92,7 @@ interface LocalState {
   /** chatId -> ISO time of the last message the person has seen (local only, never sent) */
   lastRead: Record<string, string>;
   /** local app settings */
-  local: { captureProtection: boolean; rememberMe: boolean };
+  local: { captureProtection: boolean };
 }
 
 interface State {
@@ -138,7 +138,7 @@ const state: State = {
   online: new Set(),
   connection: "connecting",
   activeChat: null,
-  local: { known: {}, verified: {}, lastRead: {}, local: { captureProtection: false, rememberMe: false } },
+  local: { known: {}, verified: {}, lastRead: {}, local: { captureProtection: false } },
   windowFocused: true,
 };
 

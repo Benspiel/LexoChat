@@ -15,7 +15,7 @@ Legende: **T** = technisch in LexiChat umgesetzt (mit Verweis), **B** = Betreibe
 - **T** Passwortrichtlinie: ≥ 12 Zeichen, Abgleich mit ~49 000 verbreiteten Passwörtern (+ deutsche Liste).
 - **T** Zwei-Faktor-Anmeldung (TOTP, RFC 6238), Pflicht für Admins.
 - **T** Kontosperre mit exponentiellem Backoff nach 5 Fehlversuchen; Rate-Limits am Reverse Proxy und im Server.
-- **T** Sitzungen: 30-min-Token + serverseitig widerrufbare Sitzung, Leerlauf- und Maximaldauer; App-Sperre nach Inaktivität.
+- **T** Sitzungen: 30-min-Token + serverseitig widerrufbare Sitzung; Admin-Web-App mit Leerlauf- und Maximaldauer; Windows-App „einmal anmelden“ (Sitzung bis Abmeldung/Widerruf, max. 365 Tage ohne Nutzung, Zugangsdaten DPAPI-geschützt im Windows-Konto); App-Sichtschutz nach Inaktivität, Windows-Bildschirmsperre per GPO.
 - **T** Keine Selbstregistrierung; Konten nur durch Admins, Einmalpasswörter.
 - **B** Server-Administration nur per SSH-Schlüssel; Superuser-Dashboard nur per SSH-Tunnel und IP-Allowlist; Firewall.
 - **O** Arbeitsplatz-Anmeldung, automatische Bildschirmsperre, BitLocker.

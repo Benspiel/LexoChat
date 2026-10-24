@@ -84,7 +84,8 @@ kek     = BLAKE2b-256(key=master, "lexichat:kek:v1")                  → verpac
 
 ### 2.3 Sitzungen
 - PocketBase-Tokens sind zustandslos (JWT). Damit Sitzungen **sichtbar und widerrufbar** sind, wird bei jedem Login ein `sessions`-Datensatz angelegt. Jede Anfrage eines Nutzers muss zusätzlich den Header `X-LexiChat-Session` mit einer gültigen, eigenen Sitzung senden, sonst `401`.
-- Token-Laufzeit 30 min (Refresh durch den Client), Sitzung: Leerlauf-Timeout (Standard 8 h) und absolute Laufzeit (Standard 14 Tage), beides in `lx_settings` konfigurierbar.
+- Token-Laufzeit 30 min (Refresh durch den Client). Admin-Web-App: Leerlauf-Timeout (Standard 8 h) und absolute Laufzeit (Standard 14 Tage), beides in `lx_settings` konfigurierbar.
+- **„Einmal anmelden“ (Windows-App)**: Desktop-Sitzungen haben kein Leerlauf-Timeout; ihre Laufzeit (365 Tage) verlängert sich bei jeder Nutzung. Beim Login erhält die App einmalig ein zufälliges 256-Bit-*Resume-Secret* (`meta.resumeSecret`); der Server speichert nur dessen SHA-256 (`sessions.resume_hash`, versteckt). Beim App-Start tauscht die App Sitzungs-ID + Secret über `POST /api/lexichat/session/resume` gegen ein frisches Token (konstantzeitiger Vergleich, Rate-Limit wie Login, nur aktive Konten). Widerruf über die Sitzungsliste, Abmelden, Passwortwechsel, Admin-Reset oder Deaktivierung beendet auch diese Sitzungen sofort.
 - Widerruf („Sitzung beenden“, Abmelden) löscht den Datensatz; offene **Realtime-Verbindungen dieser Sitzung werden sofort getrennt** (getestet).
 - Deaktivierung, Passwortwechsel und Admin-Reset erneuern den `tokenKey` (alle Tokens sofort ungültig) und löschen alle Sitzungen.
 - Hinweis: PocketBase behandelt ein ungültiges Token wie einen Gast (keine Fehlermeldung, nur leere Listen). Die Clients prüfen deshalb regelmäßig per `auth-refresh` und reagieren auf `401`.
@@ -194,9 +195,9 @@ LexiChat ist als **interner** Messenger für Beschäftigte einer Praxis konzipie
 ## 8. Windows-App (Phase 3)
 
 - **Tauri v2** mit Plugins `notification`, `single-instance`, `autostart`, `updater` (signierte Updates, `native-tls`/Schannel), `process`. Capabilities in `src-tauri/capabilities/default.json` auf das Nötigste begrenzt.
-- **Geheimnisse**: Der lokale Geräteschlüssel liegt im **Windows Credential Manager** (`keyring`, DPAPI). Damit wird der lokale Nachrichten-Cache mit XChaCha20-Poly1305 verschlüsselt. Private Chat-Schlüssel liegen nur im Arbeitsspeicher und gewrappt (KEK aus dem Passwort) auf dem Server.
+- **Geheimnisse**: Der lokale Geräteschlüssel liegt im **Windows Credential Manager** (`keyring`, DPAPI). Damit wird der lokale Nachrichten-Cache mit XChaCha20-Poly1305 verschlüsselt. Private Chat-Schlüssel liegen gewrappt (KEK aus dem Passwort) auf dem Server und – für „Einmal anmelden“ – zusätzlich mit einem zufälligen Geräteschlüssel gewrappt im Credential Manager (zusammen mit Sitzungs-ID und Resume-Secret, **nie das Passwort**). Der Schutz der Schlüssel auf dem PC hängt damit am Windows-Konto (DPAPI): Wer als dieser Windows-Benutzer angemeldet ist, kann LexiChat öffnen.
 - **Screenshot-Schutz** über `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` (Einstellung pro Gerät, standardmäßig aus, weil es Bildschirmfreigaben im Support erschwert; Abfotografieren lässt sich nicht verhindern).
-- **Sperre**: nach Leerlauf (Einstellung `desktop_lock_minutes`) und über das Tray-Menü „Sperren“; Entsperren erfordert das Passwort, Schlüssel werden beim Sperren aus dem Speicher entfernt.
+- **Sperre**: nach Leerlauf (Einstellung `desktop_lock_minutes`) und über das Tray-Menü „Sperren“ als Sichtschutz; Schlüssel werden beim Sperren aus dem Speicher entfernt. Entsperren braucht **kein Passwort** mehr (ein Klick, Schlüssel kommen aus dem Credential Manager) – der eigentliche Schutz ist die Windows-Bildschirmsperre (GPO).
 - **Benachrichtigungen** standardmäßig ohne Absender und Inhalt; „Absender“ oder „Absender + Text“ nur nach Opt-in (`notificationContent`).
 - **Plattform-Abstraktion** (`src/lib/platform.ts`): Im Browser (E2E-Tests) laufen dieselben Abläufe mit In-Memory-Fallbacks; nichts wird im Browser-Speicher persistiert.
 - **Release**: `scripts/build-windows.mjs` setzt Server-URL, CSP und Updater-Endpunkt fest ein; GitHub-Workflow `release-windows.yml` (manuell) baut und signiert mit dem Zertifikat aus dem Secret-Store.

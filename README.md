@@ -35,7 +35,8 @@
 | 💬 **1:1-Chats in Echtzeit** | Bearbeiten, „Für alle löschen“, Zustell- und (freiwillige) Lesebestätigungen. |
 | 📣 **Broadcasts** | Eine Nachricht an das ganze Team, z. B. „Teamsitzung um 13 Uhr“. Die Empfängerliste bestimmt der Server. |
 | 🛡️ **Sicherheitsnummern** | Prüfen, dass niemand dazwischensitzt; Warnung bei Schlüsselwechsel. |
-| 🔐 **App-Sperre** | Nach Inaktivität oder per Klick; Benachrichtigungen standardmäßig ohne Inhalt. |
+| 🔑 **Einmal anmelden** | Passwort nur beim ersten Start – danach öffnet sich die App auf dem PC direkt (Anmeldung DPAPI-geschützt im Windows-Konto, jederzeit widerrufbar). |
+| 🔐 **App-Sperre** | Sichtschutz nach Inaktivität oder per Klick; Benachrichtigungen standardmäßig ohne Inhalt. |
 | 👩‍💼 **Admin-Web-App** | Konten anlegen, sperren, Passwörter zurücksetzen, Audit-Log, Datenauskunft – aber **keine** Chatinhalte. |
 | 🗑️ **Automatisches Löschen** | Nachrichten nach einstellbarer Frist (Standard 90 Tage), Datenschutz durch Voreinstellung. |
 | 🇪🇺 **Ohne Drittanbieter** | Keine Cloud-Dienste, keine CDNs, keine Google Fonts, kein Tracking. Eigenes Hosting in DE/EU. |
@@ -52,7 +53,7 @@
     <td><img src="docs/assets/screenshots/desktop-einstellungen.png" alt="Einstellungen Privatsphäre"><br><sub><b>Privatsphäre</b> – alles standardmäßig aus</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/assets/screenshots/desktop-gesperrt.png" alt="Gesperrte App"><br><sub><b>App-Sperre</b> – Inhalte bleiben verborgen, bis das Passwort eingegeben wird</sub></td>
+    <td><img src="docs/assets/screenshots/desktop-gesperrt.png" alt="Gesperrte App"><br><sub><b>App-Sperre</b> – Inhalte bleiben verborgen, bis Sie entsperren (ohne Passwort)</sub></td>
     <td><img src="docs/assets/screenshots/desktop-erster-start.png" alt="Hinweis beim ersten Start"><br><sub><b>Erster Start</b> – Datenschutz-Hinweis vor der Anmeldung</sub></td>
   </tr>
 </table>
@@ -115,7 +116,9 @@ Mehr dazu: [Architektur](docs/00-architektur.md) · [Bedrohungsmodell](docs/01-b
 
 ## Installation (Server)
 
-Kurzfassung – die vollständige Anleitung steht im [Betriebshandbuch](docs/betriebshandbuch.md):
+**Windows mit Docker Desktop (am einfachsten):** Docker Desktop installieren und starten, dann `deploy\windows\LexiChat-Starten.bat` doppelklicken. Das Skript fragt nach dem Server-Namen (Enter = nur dieser PC), erzeugt die Konfiguration, baut und startet alles und legt das erste Admin-Konto an. Details: [LexiChat auf Windows mit Docker](docs/windows-docker.md).
+
+**Linux-Server**, Kurzfassung – die vollständige Anleitung steht im [Betriebshandbuch](docs/betriebshandbuch.md):
 
 ```bash
 cd deploy

@@ -179,10 +179,8 @@ test("inactivity/manual lock hides all content", async () => {
   await anna.keyboard.press("Control+l");
   await expect(anna.getByRole("heading", { name: "LexiChat ist gesperrt." })).toBeVisible();
   await expect(anna.getByText("Danke, komme sofort.")).toHaveCount(0);
-  await anna.getByLabel("Passwort").fill("falsch falsch falsch");
-  await anna.getByRole("button", { name: "Entsperren" }).click();
-  await expect(anna.getByRole("alert")).toContainText("Das Passwort ist falsch.");
-  await anna.getByLabel("Passwort").fill(PW.anna);
+  // "einmal anmelden": unlocking needs no password, only a click
+  await expect(anna.getByLabel("Passwort")).toHaveCount(0);
   await anna.getByRole("button", { name: "Entsperren" }).click();
   await expect(anna.getByRole("button", { name: "Neuer Chat" }).first()).toBeVisible();
   await anna.getByRole("button", { name: /Ben Schulz/ }).click();

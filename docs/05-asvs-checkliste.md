@@ -11,7 +11,7 @@
 | V2.4 | Speicherung von Anmeldedaten | ✅ | Argon2id (Client) + bcrypt (Server) |
 | V2.5 | Wiederherstellung | ✅ | kein Self-Service-Reset per E-Mail; Einmalpasswort durch Admin; Wiederherstellungsschlüssel für Schlüssel |
 | V2.7/2.8 | Out-of-band / OTP | ✅ | TOTP RFC 6238, Replay-Schutz, Secret verschlüsselt; Pflicht für Admins |
-| V3 | Sitzungsverwaltung | ✅ | serverseitige Sitzungen, Widerruf, Leerlauf/Max-Dauer, Token 30 min, keine Cookies (kein CSRF-Vektor), Abmelden beendet Sitzung |
+| V3 | Sitzungsverwaltung | ✅ | serverseitige Sitzungen, Widerruf, Leerlauf/Max-Dauer (Admin-Web; Windows-App: gleitend 365 Tage + gehashtes Resume-Secret, bewusste Abweichung für „einmal anmelden“), Token 30 min, keine Cookies (kein CSRF-Vektor), Abmelden beendet Sitzung |
 | V4 | Zugriffskontrolle | ✅ | default deny, serverseitig, Tests (positiv/negativ), Admin + 2FA für Verwaltung |
 | V5 | Validierung, Sanitisierung, Encoding | ✅ | Feld-Allow-Listen, Schema-Validierung, Strukturprüfung der Krypto-Daten, React-Escaping, kein HTML-Rendering |
 | V6 | Kryptografie | ✅ | libsodium (XChaCha20-Poly1305, X25519, Ed25519, Argon2id, BLAKE2b), Go x/crypto; CSPRNG; keine Eigenbau-Primitive |

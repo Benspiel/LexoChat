@@ -1,0 +1,13 @@
+* text=auto
+# scripts and configs that run inside Linux containers keep LF on Windows checkouts
+*.sh text eol=lf
+Caddyfile text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+.env.example text eol=lf
+# Windows helpers
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.png binary
+*.ico binary
+*.icns binary

@@ -415,38 +415,30 @@ export function RestoreKeys({ step, keys, onNext, onRecoveryKey }: { step: Login
 
 // ------------------------------------------------------------------ lock screen
 
-export function LockScreen({ name, onUnlock, onLogout, attemptsLeft }: { name: string; onUnlock: (password: string) => Promise<void>; onLogout: () => void; attemptsLeft: number }) {
-  const [pw, setPw] = useState("");
+export function LockScreen({ name, onUnlock, onLogout }: { name: string; onUnlock: () => Promise<void>; onLogout: () => void }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   return (
     <AuthFrame title="LexiChat ist gesperrt." lead={`Angemeldet als ${name}. Inhalte sind ausgeblendet, bis Sie entsperren.`}>
-      <form
-        className="lx-stack"
-        noValidate
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setBusy(true);
-          setError(null);
-          try {
-            await onUnlock(pw);
-          } catch (err) {
-            setError(`${errorText(err)} Noch ${Math.max(0, attemptsLeft - 1)} Versuche, danach werden Sie abgemeldet.`);
-          } finally {
-            setPw("");
-            setBusy(false);
-          }
-        }}
-      >
-        {error && <Notice kind="error">{error}</Notice>}
-        <TextField label="Passwort" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus />
-        <Button type="submit" block loading={busy} disabled={!pw}>
+      <div className="lx-stack">
+        <Button
+          block
+          loading={busy}
+          autoFocus
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onUnlock();
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
           Entsperren
         </Button>
         <Button variant="ghost" block onClick={onLogout}>
           Abmelden
         </Button>
-      </form>
+      </div>
     </AuthFrame>
   );
 }

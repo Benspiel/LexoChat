@@ -4,6 +4,9 @@
 #   docker compose up -d --build
 #   ./scripts/create-first-admin.sh
 #
+# Windows (Docker Desktop): double-click deploy\windows\LexiChat-Starten.bat – it
+# creates the .env, builds and starts everything (see docs/windows-docker.md).
+#
 # The PocketBase dashboard (/_/) is only reachable via SSH tunnel:
 #   ssh -L 8090:127.0.0.1:8090 user@server   ->  http://localhost:8090/_/
 
@@ -49,7 +52,9 @@ services:
 
   caddy:
     build:
-      context: ./caddy
+      # repo root: the image also builds the admin web app (no Node needed on the host)
+      context: ..
+      dockerfile: deploy/caddy/Dockerfile
     image: lexichat/caddy:local
     restart: unless-stopped
     depends_on:
@@ -62,8 +67,6 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
-      # built admin web app (apps/admin-web/dist), see docs/betriebshandbuch.md
-      - ./admin-web-dist:/srv/admin-web:ro
       # signed Windows app updates (latest.json + installer + .sig), see docs/betriebshandbuch.md
       - ./updates:/srv/updates:ro
     networks:

@@ -150,16 +150,20 @@ func (s *Server) registerAuthHooks(app core.App) {
 			return err
 		}
 
-		sess, err := s.createSession(e.App, e.Record, client, e.Request.Header.Get(HeaderDevice), ip)
+		sess, resumeSecret, err := s.createSession(e.App, e.Record, client, e.Request.Header.Get(HeaderDevice), ip)
 		if err != nil {
 			return e.InternalServerError("", err)
 		}
 
-		e.Meta = map[string]any{
+		meta := map[string]any{
 			"sessionId":          sess.Id,
 			"mustChangePassword": e.Record.GetBool("must_change_password"),
 			"totpSetupRequired":  requires2FASetup(e.App, e.Record),
 		}
+		if resumeSecret != "" {
+			meta["resumeSecret"] = resumeSecret
+		}
+		e.Meta = meta
 
 		if err := e.Next(); err != nil {
 			if delErr := e.App.Delete(sess); delErr != nil {

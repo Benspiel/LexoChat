@@ -9,6 +9,7 @@ func (s *Server) registerRoutes(se *core.ServeEvent) {
 	g := se.Router.Group("/api/lexichat")
 
 	g.GET("/prelogin", s.handlePrelogin)
+	g.POST("/session/resume", s.handleResumeSession)
 
 	me := g.Group("/me")
 	me.Bind(apis.RequireAuth(ColUsers))

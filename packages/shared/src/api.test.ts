@@ -31,6 +31,21 @@ describe("LexiChatClient", () => {
     expect(c.auth?.sessionId).toBe("s1");
   });
 
+  it("keeps the resume secret of a desktop login and resumes without password", async () => {
+    mockFetch(200, { token: "t", record: { id: "1", username: "a", name: "A" }, meta: { sessionId: "s1", resumeSecret: "r".repeat(64) } });
+    const c = new LexiChatClient();
+    await c.login("a", "k");
+    expect(c.auth?.resumeSecret).toBe("r".repeat(64));
+
+    const f = mockFetch(200, { token: "t2", record: { id: "1", username: "a", name: "A" }, meta: { sessionId: "s1" } });
+    const fresh = new LexiChatClient();
+    await fresh.resume("s1", "r".repeat(64));
+    const [url, init] = f.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/lexichat/session/resume");
+    expect(JSON.parse(init.body as string)).toEqual({ sessionId: "s1", resumeSecret: "r".repeat(64) });
+    expect(fresh.auth).toMatchObject({ token: "t2", sessionId: "s1", resumeSecret: "r".repeat(64) });
+  });
+
   it("drops the auth state on 401 and notifies", async () => {
     mockFetch(401, { message: "Ihre Sitzung ist abgelaufen oder wurde beendet." });
     const onUnauthorized = vi.fn();

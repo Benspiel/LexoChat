@@ -1,27 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { wipeIdentity } from "@lexichat/crypto";
 import { Spinner } from "@lexichat/ui";
 import { localCache, onNativeEvent, setCaptureProtection } from "./lib/platform";
-import { loadRemembered, logout, remember, resume, sessionEvents, unlockLocally, type NextStep, type Unlocked } from "./lib/session";
+import { loadRemembered, logout, remember, resume, sessionEvents, unlockFromDevice, type NextStep, type Unlocked } from "./lib/session";
 import { getState, lock as lockStore, setWindowFocused, start, stop, unlock as unlockStore } from "./lib/store";
 import { ChangeInitialPassword, LockScreen, LoginScreen, PrivacyNotice, RecoveryKeyScreen, RestoreKeys, SetupKeys } from "./views/Auth";
 import { Main } from "./views/Main";
 import { getUnlocked, setUnlocked } from "./views/unlockedRef";
 
-const MAX_UNLOCK_ATTEMPTS = 5;
-
 type Phase =
   | { name: "boot" }
   | { name: "notice" }
   | { name: "login"; notice?: string }
-  | { name: "resume"; remembered: NonNullable<Awaited<ReturnType<typeof loadRemembered>>> }
   | { name: "flow"; next: NextStep }
   | { name: "recovery"; key: string; continueWith: () => Promise<NextStep> }
   | { name: "app"; locked: boolean };
 
 export function App() {
   const [phase, setPhase] = useState<Phase>({ name: "boot" });
-  const attempts = useRef(0);
 
   const toLogin = useCallback(async (notice?: string) => {
     const u = getUnlocked();
@@ -32,30 +28,35 @@ export function App() {
     setPhase({ name: "login", notice });
   }, []);
 
-  // boot: privacy notice once, then a remembered session or the login
+  const enterApp = useCallback(async (u: Unlocked, fresh: boolean) => {
+    setUnlocked(u);
+    setPhase({ name: "app", locked: false });
+    // "einmal anmelden": after a password login the device remembers the login
+    if (fresh) await remember(u);
+    await start(u.user, u.identity);
+    if (getState().local.local.captureProtection) await setCaptureProtection(true);
+  }, []);
+
+  // boot: privacy notice once, then the remembered login (no password) or the login form
   useEffect(() => {
+    sessionEvents.onExpired = () => void toLogin("Ihre Sitzung ist abgelaufen oder wurde beendet. Bitte melden Sie sich erneut an.");
     void (async () => {
       const accepted = await localCache.read<boolean>("notice-v1", false);
       if (!accepted) return setPhase({ name: "notice" });
       const r = await loadRemembered();
-      setPhase(r ? { name: "resume", remembered: r } : { name: "login" });
+      if (!r) return setPhase({ name: "login" });
+      try {
+        await enterApp(await resume(r), false);
+      } catch (err) {
+        setPhase({ name: "login", notice: err instanceof Error ? err.message : undefined });
+      }
     })();
-    sessionEvents.onExpired = () => void toLogin("Ihre Sitzung ist abgelaufen oder wurde beendet. Bitte melden Sie sich erneut an.");
-  }, [toLogin]);
-
-  const enterApp = useCallback(async (u: Unlocked) => {
-    setUnlocked(u);
-    attempts.current = 0;
-    setPhase({ name: "app", locked: false });
-    await start(u.user, u.identity);
-    if (getState().local.local.captureProtection) await setCaptureProtection(true);
-    if (getState().local.local.rememberMe) await remember(u);
-  }, []);
+  }, [toLogin, enterApp]);
 
   const handleNext = useCallback(
     (n: NextStep | { kind: "login"; notice: string }) => {
       if (n.kind === "login") return void toLogin(n.notice);
-      if (n.kind === "ready") return void enterApp(n.unlocked);
+      if (n.kind === "ready") return void enterApp(n.unlocked, true);
       setPhase({ name: "flow", next: n });
     },
     [enterApp, toLogin],
@@ -121,23 +122,6 @@ export function App() {
       );
     case "login":
       return <LoginScreen notice={phase.notice} onNext={handleNext} />;
-    case "resume":
-      return (
-        <LockScreen
-          name={phase.remembered.user.name}
-          attemptsLeft={MAX_UNLOCK_ATTEMPTS - attempts.current}
-          onLogout={() => void toLogin()}
-          onUnlock={async (pw) => {
-            try {
-              await enterApp(await resume(phase.remembered, pw));
-            } catch (err) {
-              attempts.current++;
-              if (attempts.current >= MAX_UNLOCK_ATTEMPTS) await toLogin("Zu viele Fehlversuche. Bitte melden Sie sich neu an.");
-              throw err;
-            }
-          }}
-        />
-      );
     case "recovery":
       return (
         <RecoveryKeyScreen
@@ -167,21 +151,17 @@ export function App() {
           {phase.locked && (
             <LockScreen
               name={getUnlocked()?.user.name ?? ""}
-              attemptsLeft={MAX_UNLOCK_ATTEMPTS - attempts.current}
               onLogout={() => void toLogin()}
-              onUnlock={async (pw) => {
+              onUnlock={async () => {
                 const u = getUnlocked();
                 if (!u) return;
                 try {
-                  const identity = await unlockLocally(u, pw);
+                  const identity = await unlockFromDevice();
                   setUnlocked({ ...u, identity });
                   unlockStore(identity);
-                  attempts.current = 0;
                   setPhase({ name: "app", locked: false });
                 } catch (err) {
-                  attempts.current++;
-                  if (attempts.current >= MAX_UNLOCK_ATTEMPTS) await toLogin("Zu viele Fehlversuche beim Entsperren. Sie wurden abgemeldet.");
-                  throw err;
+                  await toLogin(err instanceof Error ? err.message : undefined);
                 }
               }}
             />

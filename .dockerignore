@@ -1,0 +1,13 @@
+# build context for deploy/caddy/Dockerfile (repo root): only sources are needed
+**/node_modules
+**/dist
+**/test-results
+**/playwright-report
+.git
+apps/desktop/src-tauri/target
+apps/server/lexichat
+deploy/.env
+deploy/updates
+docs/assets
+pb_data
+*.age

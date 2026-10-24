@@ -56,7 +56,10 @@ func (s *Server) RunRetention(app core.App) (RetentionResult, error) {
 	idleCutoff := types.NowDateTime().Add(-time.Duration(gs.SessionIdleMinutes) * time.Minute).String()
 	n, err = deleteInBatches(app, ColSessions, dbx.Or(
 		dbx.NewExp("[[expires_at]] < {:now}", dbx.Params{"now": nowStr}),
-		dbx.NewExp("[[last_seen]] < {:idle}", dbx.Params{"idle": idleCutoff}),
+		dbx.And(
+			dbx.NewExp("[[client]] != {:desktop}", dbx.Params{"desktop": ClientDesktop}),
+			dbx.NewExp("[[last_seen]] < {:idle}", dbx.Params{"idle": idleCutoff}),
+		),
 	))
 	res.Sessions = n
 	if err != nil {
