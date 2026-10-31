@@ -20,7 +20,7 @@
     "@lexichat/ui": "workspace:*",
     "@tauri-apps/api": "2.12.1",
     "@tauri-apps/plugin-autostart": "2.7.0",
-    "@tauri-apps/plugin-notification": "2.5.1",
+    "@tauri-apps/plugin-notification": "2.8.0",
     "@tauri-apps/plugin-process": "2.4.0",
     "@tauri-apps/plugin-updater": "2.13.1",
     "qrcode": "1.5.4",
