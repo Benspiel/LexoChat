@@ -122,7 +122,7 @@ Mehr dazu: [Architektur](docs/00-architektur.md) · [Bedrohungsmodell](docs/01-b
 docker compose up -d --build
 docker compose exec server /app/lexichat bootstrap-admin --dir /pb_data --username praxisadmin --name "Praxis-Administration"
 ```
-Danach läuft die Admin-Web-App unter <https://admin.localhost> (lokales Zertifikat). Details: [LexiChat auf Windows mit Docker](docs/windows-docker.md).
+Danach läuft die Admin-Web-App unter <https://admin.localhost> (lokales Zertifikat). Den Windows-Installer (`LexiChat.msi`) baut der Server automatisch mit, zum Download im Reiter „Windows-App“ ([Details](docs/betriebshandbuch.md#5a-windows-app-msi-automatisch-vom-server)). Details: [LexiChat auf Windows mit Docker](docs/windows-docker.md).
 
 **Produktivserver mit eigener Domain**, Kurzfassung – die vollständige Anleitung steht im [Betriebshandbuch](docs/betriebshandbuch.md):
 

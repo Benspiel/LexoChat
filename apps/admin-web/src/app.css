@@ -78,6 +78,9 @@
   border-radius: var(--r-tile);
   border: 1px solid var(--hairline);
 }
+.hash {
+  overflow-wrap: anywhere;
+}
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
