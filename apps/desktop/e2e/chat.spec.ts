@@ -29,8 +29,18 @@ async function accessible(page: Page, ctx: string) {
   expect(r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(" | ")}`), ctx).toEqual([]);
 }
 
+/** Like the Tauri window: tauri.conf.json sets "freezePrototype": true, so every
+ *  library must work with a frozen Object.prototype (otherwise: white window). */
+async function appPage(browser: Browser): Promise<Page> {
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    Object.freeze(Object.prototype);
+  });
+  return context.newPage();
+}
+
 async function firstLogin(browser: Browser, user: "anna" | "ben", problems: string[]): Promise<Page> {
-  const page = await (await browser.newContext()).newPage();
+  const page = await appPage(browser);
   watch(page, problems);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Willkommen bei LexiChat." })).toBeVisible();
@@ -195,7 +205,7 @@ test("admin password reset + recovery key keeps old messages readable", async ({
   // the old session of Ben ends immediately
   await expect(ben.getByRole("heading", { name: "Anmelden." })).toBeVisible({ timeout: 30_000 });
 
-  const page = await (await browser.newContext()).newPage();
+  const page = await appPage(browser);
   await page.goto("/");
   await page.getByRole("button", { name: "Verstanden" }).click();
   await page.getByLabel("Benutzername").fill("ben");

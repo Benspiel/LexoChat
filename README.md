@@ -140,7 +140,7 @@ cd apps/server
 go test ./...                      # inkl. API-Rule-Tests gegen echte PocketBase-Instanzen
 LEXICHAT_SERVER_SECRET=$(openssl rand -base64 48) go run . serve --dev
 ```
-Go 1.27.2 wird über `toolchain` in `go.mod` automatisch geladen (`GOTOOLCHAIN=auto`).
+Go 1.27.3 wird über `toolchain` in `go.mod` automatisch geladen (`GOTOOLCHAIN=auto`).
 
 ```bash
 corepack enable && pnpm install

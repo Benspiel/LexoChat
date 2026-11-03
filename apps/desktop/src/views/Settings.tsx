@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import QRCode from "qrcode";
+import { renderSVG } from "uqr";
 import { fingerprint } from "@lexichat/crypto";
 import { filterString } from "@lexichat/shared";
 import { Avatar, Button, Dialog, Notice, SelectField, Segmented, Spinner, TextField, Toggle } from "@lexichat/ui";
@@ -18,6 +18,12 @@ const SECTIONS: { value: SettingsSection; label: string }[] = [
   { value: "privacy", label: "Privatsphäre" },
   { value: "app", label: "App" },
 ];
+
+/** QR code as SVG data url. uqr (ESM) instead of "qrcode": the latter assigns
+ *  exports.toString and crashes under Tauri's freezePrototype (white window). */
+function qrDataUrl(text: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderSVG(text, { border: 1, pixelSize: 6 }))}`;
+}
 
 function errorText(err: unknown) {
   return err instanceof Error ? err.message : "Fehler.";
@@ -282,7 +288,7 @@ function SecuritySection() {
                   const { deriveAuthKey } = await import("@lexichat/crypto");
                   const key = await deriveAuthKey(pw, u.kdf.salt, u.kdf.params);
                   const res = await client.request<{ secret: string; uri: string }>("POST", "/api/lexichat/me/totp/setup", { password: key });
-                  setTotp({ secret: res.secret, qr: await QRCode.toDataURL(res.uri, { margin: 1, width: 180 }) });
+                  setTotp({ secret: res.secret, qr: qrDataUrl(res.uri) });
                   setPw("");
                 } catch (err) {
                   setMsg({ kind: "error", text: errorText(err) });
