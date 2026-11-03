@@ -96,6 +96,17 @@ cd /opt/lexichat && git pull && cd deploy && docker compose up -d --build caddy
 ```
 Die Admin-Web-App ist Teil des Caddy-Images (`deploy/caddy/Dockerfile`); `index.html` wird nicht gecacht.
 
+## 5a. Windows-App (MSI) automatisch vom Server
+
+Bei jedem `docker compose up -d --build` baut der Dienst `windows-app` auf dem Linux-Server einen Windows-Installer **`LexiChat.msi`** für die eingestellte Domain (`LEXICHAT_DOMAIN`). Ein Windows-Rechner ist dafür nicht nötig: Die App wird mit MinGW-w64 für Windows kompiliert und mit `wixl` (msitools) als MSI verpackt.
+
+- **Download:** Admin-Web-App → Reiter **„Windows-App“** (Datei: `https://<admin-domain>/download/LexiChat.msi`, mit SHA-256). Der Pfad liegt nur auf der Admin-Domain und unterliegt `ADMIN_ALLOWED_IPS`.
+- **Dauer:** erster Build ca. 5–20 Minuten (je nach CPU), danach nur bei Änderungen am Code oder an der Domain; sonst wird der Build übersprungen. Fortschritt: `docker compose logs -f windows-app`.
+- **Ausfallsicher:** Der Build läuft getrennt vom Chat-Server. Schlägt er fehl, läuft der Chat weiter und im Dashboard bleibt die letzte funktionierende MSI verfügbar (mit Fehlerhinweis).
+- **Sicherheit:** Der Container läuft ohne Netzwerk (`network_mode: none`), ohne Root und ohne Capabilities, er bekommt keine Secrets. Benötigt bis zu 4 GB RAM.
+- **Installation:** Doppelklick oder `msiexec /i LexiChat.msi /qn` (für alle Benutzer:innen, Startmenü-Eintrag). Neue Version: neue MSI darüber installieren, die alte wird ersetzt.
+- **Einschränkungen:** Diese MSI ist **nicht code-signiert** (SmartScreen-Warnung möglich) und installiert **WebView2 nicht mit** (auf Windows 11 und aktuellem Windows 10 vorinstalliert). In-App-Updates funktionieren nur, wenn `LEXICHAT_UPDATER_PUBKEY` gesetzt ist und Updates wie in 5b bereitgestellt werden. Für signierte Installer gilt weiterhin Abschnitt 5b.
+
 ## 5b. Windows-App bauen, signieren und verteilen
 
 **Einmalig (Betreiber):**

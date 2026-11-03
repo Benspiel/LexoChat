@@ -5,11 +5,13 @@ import { UsersView } from "./Users";
 import { AuditView } from "./Audit";
 import { SettingsView } from "./Settings";
 import { AccountView } from "./Account";
+import { WindowsAppView } from "./WindowsApp";
 
 const TABS = [
   { id: "users", label: "Benutzer" },
   { id: "audit", label: "Audit-Log" },
   { id: "settings", label: "Einstellungen" },
+  { id: "windows", label: "Windows-App" },
   { id: "account", label: "Mein Konto" },
 ] as const;
 
@@ -52,6 +54,7 @@ export function Shell({ user, onLogout }: { user: UserRecord; onLogout: () => vo
         {tab === "users" && <UsersView me={user} />}
         {tab === "audit" && <AuditView />}
         {tab === "settings" && <SettingsView />}
+        {tab === "windows" && <WindowsAppView />}
         {tab === "account" && <AccountView me={user} onLogout={onLogout} />}
       </main>
 

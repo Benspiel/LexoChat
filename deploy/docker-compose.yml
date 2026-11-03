@@ -9,6 +9,10 @@
 #   docker compose up -d --build
 #   ./scripts/create-first-admin.sh
 #
+# The Windows installer (LexiChat.msi) is built automatically on this server by
+# the "windows-app" service and offered for download in the admin web app
+# (https://<admin domain>/download/LexiChat.msi). Logs: docker compose logs -f windows-app
+#
 # The PocketBase dashboard (/_/) is only reachable via SSH tunnel:
 #   ssh -L 8090:127.0.0.1:8090 user@server   ->  http://localhost:8090/_/
 
@@ -85,6 +89,8 @@ services:
       - caddy_config:/config
       # signed Windows app updates (latest.json + installer + .sig), see docs/betriebshandbuch.md
       - ./updates:/srv/updates:ro
+      # LexiChat.msi built by the windows-app service (admin web app /download/)
+      - downloads:/srv/download:ro
     networks:
       - backend
     read_only: true
@@ -103,10 +109,43 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Builds LexiChat.msi for this server (cross compiled on Linux, no Windows needed).
+  # Runs once per "docker compose up", skips the build when nothing has changed,
+  # then exits. A failed build does not affect the chat server.
+  windows-app:
+    build:
+      context: ..
+      dockerfile: deploy/windows-app/Dockerfile
+    image: lexichat/windows-app:local
+    restart: "no"
+    # only these values (no env_file: the build never sees the server secret)
+    environment:
+      LEXICHAT_DOMAIN: ${LEXICHAT_DOMAIN:-chat.localhost}
+      LEXICHAT_PRAXIS_NAME: ${LEXICHAT_PRAXIS_NAME:-LexiChat}
+      LEXICHAT_UPDATER_PUBKEY: ${LEXICHAT_UPDATER_PUBKEY:-}
+    volumes:
+      - downloads:/downloads
+      - windows_build_cache:/cache
+    # no network needed: all dependencies are already in the image
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 1024
+    mem_limit: 4g
+    cpus: 2.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 networks:
   backend:
 
 volumes:
   pb_data:
+  downloads:
+  windows_build_cache:
   caddy_data:
   caddy_config:

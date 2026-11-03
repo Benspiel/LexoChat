@@ -8,7 +8,9 @@ publish = false
 
 [lib]
 name = "lexichat_desktop_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# desktop only (Windows): staticlib/cdylib are only needed for iOS/Android and
+# break the MinGW cross build on the Linux server ("export ordinal too large")
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "=2.7.3", features = [] }
