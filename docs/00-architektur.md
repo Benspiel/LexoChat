@@ -41,7 +41,7 @@ Diese Annahmen wurden getroffen, weil sie im Auftrag nicht festgelegt waren. Jed
 ### Warum PocketBase als Go-Bibliothek (statt Binary + JS-Hooks)?
 - Alle Sicherheitsregeln (Hooks, Migrationen, Endpunkte) sind **typisiert, kompiliert und automatisiert getestet** (`go test`), inkl. Tests gegen echte PocketBase-Instanzen.
 - Ein einziges, statisch gelinktes Binary (`CGO_ENABLED=0`) im Distroless-Container ohne Shell.
-- PocketBase-Version ist in `go.mod` gepinnt (v0.40.5, Go 1.27.2). Die PocketBase-API wurde im Quellcode dieser Version geprüft, nicht aus dem Gedächtnis übernommen.
+- PocketBase-Version ist in `go.mod` gepinnt (v0.40.5, Go 1.27.3). Die PocketBase-API wurde im Quellcode dieser Version geprüft, nicht aus dem Gedächtnis übernommen.
 
 ### Monorepo
 
