@@ -22,7 +22,7 @@
     "@tauri-apps/plugin-autostart": "2.7.0",
     "@tauri-apps/plugin-notification": "2.5.1",
     "@tauri-apps/plugin-process": "2.4.0",
-    "@tauri-apps/plugin-updater": "2.13.1",
+    "@tauri-apps/plugin-updater": "2.14.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "uqr": "0.1.3"
